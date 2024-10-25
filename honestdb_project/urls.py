@@ -1,15 +1,18 @@
-from django.contrib import admin
+from django.contrib import admin  # Asegúrate de importar admin aquí
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from myapp import views
 
 router = DefaultRouter()
 router.register(r'customers', views.CustomerViewSet)
-router.register(r'addressos', views.AddressOViewSet)
-router.register(r'addressds', views.AddressDViewSet)
 router.register(r'loads', views.LoadViewSet)
+router.register(r'stops', views.StopViewSet)
+router.register(r'equipment-types', views.EquipmentTypeViewSet)
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/', include(router.urls)),
+    path('api/loads/<int:load_id>/stops/', views.LoadStopsView.as_view(), name='load-stops'),
 ]
+
+
