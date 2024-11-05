@@ -51,3 +51,59 @@ class LoadStopsView(APIView):
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         else:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class LoadStopsView(APIView):
+    # Obtener todos los stops de un load específico
+    def get(self, request, load_id):
+        try:
+            load = Load.objects.get(idmmload=load_id)
+            stops = load.stops.all()
+            serializer = StopSerializer(stops, many=True)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        except Load.DoesNotExist:
+            return Response({'error': 'Load not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    # Crear nuevos stops para un load
+    def post(self, request, load_id):
+        try:
+            load = Load.objects.get(idmmload=load_id)
+        except Load.DoesNotExist:
+            return Response({'error': 'Load not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        stop_data = request.data.get('stops', [])
+
+        # Asegúrate de agregar el `load` a cada Stop
+        for stop in stop_data:
+            stop['load'] = load.idmmload
+
+        serializer = StopSerializer(data=stop_data, many=True)
+
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        else:
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    # Actualizar un stop existente
+    def put(self, request, load_id, stop_id):
+        try:
+            stop = Stop.objects.get(id=stop_id, load_id=load_id)
+        except Stop.DoesNotExist:
+            return Response({'error': 'Stop not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = StopSerializer(stop, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        else:
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    # Eliminar un stop existente
+    def delete(self, request, load_id, stop_id):
+        try:
+            stop = Stop.objects.get(id=stop_id, load_id=load_id)
+        except Stop.DoesNotExist:
+            return Response({'error': 'Stop not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        stop.delete()
+        return Response({'message': 'Stop deleted successfully'}, status=status.HTTP_204_NO_CONTENT)
