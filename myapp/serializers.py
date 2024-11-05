@@ -28,22 +28,27 @@ class StopSerializer(serializers.ModelSerializer):
 class LoadSerializer(serializers.ModelSerializer):
     origin = AddressOSerializer()
     destiny = AddressDSerializer()
-    customer = CustomerSerializer()
+    customer = serializers.PrimaryKeyRelatedField(queryset=Customer.objects.all())
     stops = StopSerializer(many=True)
 
     class Meta:
         model = Load
         fields = '__all__'
 
+    def to_representation(self, instance):
+        """Customize the representation of customer to return the full object."""
+        representation = super().to_representation(instance)
+        representation['customer'] = CustomerSerializer(instance.customer).data
+        return representation
+
     def create(self, validated_data):
         origin_data = validated_data.pop('origin')
         destiny_data = validated_data.pop('destiny')
-        customer_data = validated_data.pop('customer')
         stops_data = validated_data.pop('stops', [])
+        customer = validated_data.pop('customer')  # Use the existing customer
 
         origin = AddressO.objects.create(**origin_data)
         destiny = AddressD.objects.create(**destiny_data)
-        customer = CustomerSerializer.create(CustomerSerializer(), validated_data=customer_data)
 
         load = Load.objects.create(origin=origin, destiny=destiny, customer=customer, **validated_data)
 
@@ -55,7 +60,6 @@ class LoadSerializer(serializers.ModelSerializer):
     def update(self, instance, validated_data):
         origin_data = validated_data.pop('origin', None)
         destiny_data = validated_data.pop('destiny', None)
-        customer_data = validated_data.pop('customer', None)
         stops_data = validated_data.pop('stops', None)
 
         if origin_data:
@@ -69,12 +73,6 @@ class LoadSerializer(serializers.ModelSerializer):
             for attr, value in destiny_data.items():
                 setattr(destiny_instance, attr, value)
             destiny_instance.save()
-
-        if customer_data:
-            customer_instance = instance.customer
-            for attr, value in customer_data.items():
-                setattr(customer_instance, attr, value)
-            customer_instance.save()
 
         if stops_data:
             instance.stops.all().delete()
