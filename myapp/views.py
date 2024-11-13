@@ -1,30 +1,32 @@
-from rest_framework import viewsets
+from rest_framework import viewsets, status
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework import status
-from .models import Customer, Load, Stop, EquipmentType
-from .serializers import CustomerSerializer, LoadSerializer, StopSerializer, EquipmentTypeSerializer
+from .models import Customer, Load, Stop, EquipmentType, OfferHistory
+from .serializers import CustomerSerializer, LoadSerializer, StopSerializer, EquipmentTypeSerializer, OfferHistorySerializer
+from django.utils import timezone
+from django.shortcuts import get_object_or_404
 
+# Customer ViewSet
 class CustomerViewSet(viewsets.ModelViewSet):
     queryset = Customer.objects.all()
     serializer_class = CustomerSerializer
 
-
+# Load ViewSet
 class LoadViewSet(viewsets.ModelViewSet):
     queryset = Load.objects.all()
     serializer_class = LoadSerializer
 
-
+# Stop ViewSet
 class StopViewSet(viewsets.ModelViewSet):
     queryset = Stop.objects.all()
     serializer_class = StopSerializer
 
-
+# EquipmentType ViewSet
 class EquipmentTypeViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = EquipmentType.objects.all()
     serializer_class = EquipmentTypeSerializer
 
-
+# Primera definición de LoadStopsView
 class LoadStopsView(APIView):
     def get(self, request, load_id):
         try:
@@ -52,6 +54,7 @@ class LoadStopsView(APIView):
         else:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+# Segunda definición de LoadStopsView (duplicada)
 class LoadStopsView(APIView):
     # Obtener todos los stops de un load específico
     def get(self, request, load_id):
@@ -107,3 +110,25 @@ class LoadStopsView(APIView):
 
         stop.delete()
         return Response({'message': 'Stop deleted successfully'}, status=status.HTTP_204_NO_CONTENT)
+
+# OfferHistoryView para manejar el historial de ofertas de un load
+class OfferHistoryView(APIView):
+    def post(self, request, load_id):
+        try:
+            load = Load.objects.get(idmmload=load_id)
+        except Load.DoesNotExist:
+            return Response({'error': 'Load not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        amount = request.data.get('amount')
+        offer_status = request.data.get('status', 'Pending')
+
+        # Crear la oferta en el historial
+        offer = OfferHistory.objects.create(load=load, amount=amount, status=offer_status, date=timezone.now())
+
+        # Actualizar el número de ofertas y el estado de is_offerted
+        load.number_of_offers += 1
+        load.is_offerted = True
+        load.save()
+
+        serializer = OfferHistorySerializer(offer)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)

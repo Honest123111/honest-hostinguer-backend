@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Customer, AddressO, AddressD, Load, Stop, EquipmentType, Job_Type
+from .models import Customer, AddressO, AddressD, Load, Stop, EquipmentType, Job_Type,OfferHistory
 
 admin.site.register(Customer)
 admin.site.register(AddressO)
@@ -8,3 +8,4 @@ admin.site.register(Load)
 admin.site.register(Stop)
 admin.site.register(EquipmentType)
 admin.site.register(Job_Type)
+admin.site.register(OfferHistory)

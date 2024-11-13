@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Customer, AddressO, AddressD, Load, Stop, EquipmentType, Job_Type
+from .models import Customer, AddressO, AddressD, Load, Stop, EquipmentType, Job_Type, OfferHistory
 
 class CustomerSerializer(serializers.ModelSerializer):
     class Meta:
@@ -36,7 +36,6 @@ class LoadSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
     def to_representation(self, instance):
-        """Customize the representation of customer to return the full object."""
         representation = super().to_representation(instance)
         representation['customer'] = CustomerSerializer(instance.customer).data
         return representation
@@ -45,7 +44,7 @@ class LoadSerializer(serializers.ModelSerializer):
         origin_data = validated_data.pop('origin')
         destiny_data = validated_data.pop('destiny')
         stops_data = validated_data.pop('stops', [])
-        customer = validated_data.pop('customer')  # Use the existing customer
+        customer = validated_data.pop('customer')
 
         origin = AddressO.objects.create(**origin_data)
         destiny = AddressD.objects.create(**destiny_data)
@@ -58,33 +57,32 @@ class LoadSerializer(serializers.ModelSerializer):
         return load
 
     def update(self, instance, validated_data):
-            origin_data = validated_data.pop('origin', None)
-            destiny_data = validated_data.pop('destiny', None)
-            stops_data = validated_data.pop('stops', None)
+        origin_data = validated_data.pop('origin', None)
+        destiny_data = validated_data.pop('destiny', None)
+        stops_data = validated_data.pop('stops', None)
 
-            if origin_data:
-                origin_instance = instance.origin
-                for attr, value in origin_data.items():
-                    setattr(origin_instance, attr, value)
-                origin_instance.save()
+        if origin_data:
+            origin_instance = instance.origin
+            for attr, value in origin_data.items():
+                setattr(origin_instance, attr, value)
+            origin_instance.save()
 
-            if destiny_data:
-                destiny_instance = instance.destiny
-                for attr, value in destiny_data.items():
-                    setattr(destiny_instance, attr, value)
-                destiny_instance.save()
+        if destiny_data:
+            destiny_instance = instance.destiny
+            for attr, value in destiny_data.items():
+                setattr(destiny_instance, attr, value)
+            destiny_instance.save()
 
-            if stops_data:
-                instance.stops.all().delete()
-                for stop_data in stops_data:
-                    stop_data.pop('load', None)  # Remove 'load' from stop_data if it exists
-                    Stop.objects.create(load=instance, **stop_data)
+        if stops_data:
+            instance.stops.all().delete()
+            for stop_data in stops_data:
+                Stop.objects.create(load=instance, **stop_data)
 
-            for attr, value in validated_data.items():
-                setattr(instance, attr, value)
-            instance.save()
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
 
-            return instance
+        return instance
 
 
 class EquipmentTypeSerializer(serializers.ModelSerializer):
@@ -96,4 +94,10 @@ class EquipmentTypeSerializer(serializers.ModelSerializer):
 class JobTypeSerializer(serializers.ModelSerializer):
     class Meta:
         model = Job_Type
+        fields = '__all__'
+
+
+class OfferHistorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = OfferHistory
         fields = '__all__'
