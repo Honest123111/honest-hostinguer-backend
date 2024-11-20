@@ -97,3 +97,9 @@ class OfferHistory(models.Model):
 
     def __str__(self):
         return f'Offer {self.amount} for {self.load}'
+
+class ProcessedEmail(models.Model):
+    message_id = models.CharField(max_length=255, unique=True)
+
+    def __str__(self):
+        return self.message_id

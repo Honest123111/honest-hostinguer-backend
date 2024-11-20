@@ -39,7 +39,8 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'corsheaders',
     'rest_framework',  # Django REST Framework
-    'myapp',           # Add the app here
+    'myapp',    
+    'django_celery_beat',      # Add the app here
 ]
 
 
@@ -126,3 +127,15 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+# Configuración de Celery
+CELERY_BROKER_URL = 'redis://localhost:6379/0'  # URL de Redis
+CELERY_ACCEPT_CONTENT = ['json']  # Acepta solo JSON
+CELERY_TASK_SERIALIZER = 'json'  # Serializa las tareas como JSON
+CELERY_RESULT_BACKEND = 'redis://localhost:6379/0'
+
+CELERY_BEAT_SCHEDULE = {
+    'extract-emails-every-5-seconds': {
+        'task': 'myapp.tasks.extract_emails_task',
+        'schedule': 60.0,  # Ejecutar cada 5 segundos
+    },
+}
