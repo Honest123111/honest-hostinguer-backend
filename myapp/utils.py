@@ -2,125 +2,190 @@ import imaplib
 import email
 from email.header import decode_header
 from datetime import datetime, timedelta
-from .models import Load, AddressO, AddressD, Customer, ProcessedEmail
+from .models import Load, AddressO, AddressD, Customer, ProcessedEmail, Stop
+import requests
+import time
 
 # Credenciales de Gmail
 GMAIL_USER = "aventurastorefigures@gmail.com"
-GMAIL_PASSWORD = "jnwz asgl hwae mcdi"  # Cambia esto por la contraseña real
+GMAIL_PASSWORD = "jnwz asgl hwae mcdi"
 IMAP_SERVER = "imap.gmail.com"
 
+# Función para obtener coordenadas usando la API de Nominatim con reintentos
+def get_coordinates(address, zip_code=None, state=None, retries=3, delay=5):
+    query = address
+    if state:
+        query += f", {state}"
+    if zip_code:
+        query += f", {zip_code}"
+
+    url = "https://nominatim.openstreetmap.org/search"
+    params = {
+        "q": query,
+        "format": "json",
+        "limit": 1
+    }
+    headers = {
+        "User-Agent": "YourAppName/1.0 (your_email@example.com)"
+    }
+
+    for attempt in range(retries):
+        try:
+            response = requests.get(url, params=params, headers=headers, timeout=10)
+            response.raise_for_status()
+            data = response.json()
+
+            if data:
+                latitude = data[0]["lat"]
+                longitude = data[0]["lon"]
+                return f"{latitude},{longitude}"
+            else:
+                print(f"No se encontraron coordenadas para la dirección: {query}")
+                return None
+        except requests.exceptions.RequestException as e:
+            print(f"Intento {attempt + 1} fallido al obtener coordenadas para {query}: {e}")
+            time.sleep(delay)
+
+    print(f"No se pudieron obtener coordenadas para {query} tras {retries} intentos.")
+    return None
+
+
+# Función para leer correos y procesar cargas
 def fetch_and_create_load():
     try:
-        # Conectar al servidor IMAP
+        print("Iniciando la extracción de correos electrónicos...")
         mail = imaplib.IMAP4_SSL(IMAP_SERVER)
         mail.login(GMAIL_USER, GMAIL_PASSWORD)
-        mail.select("inbox")  # Selecciona la bandeja de entrada
+        mail.select("inbox")
 
-        # Obtener la fecha de hace 2 días
+        # Fecha de hace 2 días
         two_days_ago = datetime.now() - timedelta(days=2)
-        two_days_ago_str = two_days_ago.strftime("%d-%b-%Y")  # Formato: 20-Nov-2024
+        two_days_ago_str = two_days_ago.strftime("%d-%b-%Y")
 
-        # Buscar correos entre hace dos días y la fecha actual
+        # Buscar correos con el asunto "NEW LOAD"
         search_criteria = f'(SUBJECT "NEW LOAD" SINCE "{two_days_ago_str}")'
         status, messages = mail.search(None, search_criteria)
 
-        # Procesar cada mensaje
         for num in messages[0].split():
             status, msg_data = mail.fetch(num, "(RFC822)")
             for response_part in msg_data:
                 if isinstance(response_part, tuple):
                     msg = email.message_from_bytes(response_part[1])
 
-                    # Obtener el ID único del mensaje
+                    # ID del mensaje
                     msg_id = msg["Message-ID"]
-
-                    # Verificar si ya se ha procesado este correo
                     if ProcessedEmail.objects.filter(message_id=msg_id).exists():
-                        print(f"El correo con ID {msg_id} ya fue procesado.")
-                        continue  # Ignorar este correo si ya se ha procesado
+                        print(f"Correo con ID {msg_id} ya procesado.")
+                        continue
 
-                    # Obtener el cuerpo del correo y decodificar correctamente en UTF-8
+                    # Decodificar cuerpo del correo
                     body = ""
                     if msg.is_multipart():
                         for part in msg.walk():
                             if part.get_content_type() == "text/plain":
-                                body = part.get_payload(decode=True).decode('utf-8', 'ignore')  # Cambiar a utf-8
+                                body = part.get_payload(decode=True).decode('utf-8', 'ignore')
                                 break
                     else:
-                        body = msg.get_payload(decode=True).decode('utf-8', 'ignore')  # Cambiar a utf-8
+                        body = msg.get_payload(decode=True).decode('utf-8', 'ignore')
 
-                    # Imprimir el contenido del correo para depuración
-                    print("Contenido del correo recibido:")
-                    print(body)
-
-                    # Parsear el contenido del correo y crear la carga
+                    # Parsear y crear carga
                     load_data = parse_email_body(body)
                     if load_data:
                         create_load_from_data(load_data)
 
-                    # Marcar este correo como procesado
+                    # Registrar el correo como procesado
                     ProcessedEmail.objects.create(message_id=msg_id)
 
-        mail.logout()  # Cerrar sesión del servidor IMAP
+        mail.logout()
+        print("Extracción de correos completada con éxito.")
     except Exception as e:
         print(f"Error en fetch_and_create_load: {e}")
 
+
+# Función para parsear el cuerpo del correo
 def parse_email_body(body):
     try:
-        # Limpiar el cuerpo del correo de líneas vacías o comentarios
-        lines = [line for line in body.splitlines() if line.strip() and not line.strip().startswith('#')]
+        lines = [line.strip() for line in body.splitlines() if line.strip()]
 
-        # Imprimir las líneas extraídas para depuración
         print("Líneas extraídas del correo:")
         for line in lines:
             print(line)
 
-        # Verificar si hay suficientes líneas
-        if len(lines) < 14:  # Asegurarse de que haya al menos 14 líneas
+        if len(lines) < 12:
             print("Error: el correo no contiene suficientes datos.")
             return None
 
-        # Extraer datos
+        # Extraer Stops si están al final
+        stops_data = []
+        stops_start_index = 12  # Ajusta según el formato del correo
+        for i in range(stops_start_index, len(lines), 5):  # Asumiendo 5 líneas por Stop
+            if i + 4 >= len(lines):
+                break
+            stops_data.append({
+                "location": lines[i].split(":")[1].strip(),
+                "date_time": lines[i + 1].split(":")[1].strip(),
+                "action_type": lines[i + 2].split(":")[1].strip(),
+                "estimated_weight": int(lines[i + 3].split(":")[1].strip()),
+                "quantity": int(lines[i + 4].split(":")[1].strip()),
+            })
+
+        # Extraer datos principales
         data = {
-            "origin_zip": lines[0].split(":")[1].strip() if len(lines) > 0 else "",
-            "origin_address": lines[1].split(":")[1].strip() if len(lines) > 1 else "",
-            "origin_state": lines[2].split(":")[1].strip() if len(lines) > 2 else "",
-            "origin_coordinates": lines[3].split(":")[1].strip() if len(lines) > 3 else "",  # Coordenadas de origen
-            "destiny_zip": lines[4].split(":")[1].strip() if len(lines) > 4 else "",
-            "destiny_address": lines[5].split(":")[1].strip() if len(lines) > 5 else "",
-            "destiny_state": lines[6].split(":")[1].strip() if len(lines) > 6 else "",
-            "destiny_coordinates": lines[7].split(":")[1].strip() if len(lines) > 7 else "",  # Coordenadas de destino
-            "customer_id": int(lines[8].split(":")[1].strip()) if len(lines) > 8 else 0,
-            "equipment_type": lines[9].split(":")[1].strip() if len(lines) > 9 else "",
-            "loaded_miles": int(lines[10].split(":")[1].strip()) if len(lines) > 10 else 0,
-            "total_weight": int(lines[11].split(":")[1].strip()) if len(lines) > 11 else 0,
-            "commodity": lines[12].split(":")[1].strip() if len(lines) > 12 else "",
-            "offer": float(lines[13].split(":")[1].strip()) if len(lines) > 13 else 0.0,
+            "origin_zip": lines[0].split(":")[1].strip(),
+            "origin_address": lines[1].split(":")[1].strip(),
+            "origin_state": lines[2].split(":")[1].strip(),
+            "destiny_zip": lines[3].split(":")[1].strip(),
+            "destiny_address": lines[4].split(":")[1].strip(),
+            "destiny_state": lines[5].split(":")[1].strip(),
+            "customer_id": int(lines[6].split(":")[1].strip()),
+            "equipment_type": lines[7].split(":")[1].strip(),
+            "loaded_miles": int(lines[8].split(":")[1].strip()),
+            "total_weight": int(lines[9].split(":")[1].strip()),
+            "commodity": lines[10].split(":")[1].strip(),
+            "offer": float(lines[11].split(":")[1].strip()),
+            "stops": stops_data,  # Agregar Stops al resultado
         }
         return data
     except Exception as e:
         print(f"Error al parsear el correo: {e}")
         return None
 
+
+# Función para crear la carga (Load) desde los datos del correo
 def create_load_from_data(load_data):
     try:
+        # Calcular coordenadas para origen y destino
+        origin_coordinates = get_coordinates(load_data["origin_address"])
+        if not origin_coordinates:
+            print(f"Error: No se pudo obtener coordenadas para la dirección de origen {load_data['origin_address']}.")
+            return
+
+        destiny_coordinates = get_coordinates(load_data["destiny_address"])
+        if not destiny_coordinates:
+            print(f"Error: No se pudo obtener coordenadas para la dirección de destino {load_data['destiny_address']}.")
+            return
+
+        # Crear AddressO
         origin = AddressO.objects.create(
             zip_code=load_data["origin_zip"],
             address=load_data["origin_address"],
             state=load_data["origin_state"],
-            coordinates=load_data["origin_coordinates"],  # Asignar las coordenadas
+            coordinates=origin_coordinates
         )
 
+        # Crear AddressD
         destiny = AddressD.objects.create(
             zip_code=load_data["destiny_zip"],
             address=load_data["destiny_address"],
             state=load_data["destiny_state"],
-            coordinates=load_data["destiny_coordinates"],  # Asignar las coordenadas
+            coordinates=destiny_coordinates
         )
 
+        # Obtener cliente
         customer = Customer.objects.get(id=load_data["customer_id"])
 
-        Load.objects.create(
+        # Crear Load
+        load = Load.objects.create(
             origin=origin,
             destiny=destiny,
             equipment_type=load_data["equipment_type"],
@@ -130,6 +195,24 @@ def create_load_from_data(load_data):
             commodity=load_data["commodity"],
             offer=load_data["offer"],
         )
+
+        # Crear Stops con coordenadas calculadas
+        for stop_data in load_data.get("stops", []):
+            stop_coordinates = get_coordinates(stop_data["location"])
+            if not stop_coordinates:
+                print(f"Error: No se pudo obtener coordenadas para el stop {stop_data['location']}.")
+                continue
+
+            Stop.objects.create(
+                load=load,
+                location=stop_data["location"],
+                date_time=stop_data["date_time"],
+                action_type=stop_data["action_type"],
+                estimated_weight=stop_data["estimated_weight"],
+                quantity=stop_data["quantity"],
+                coordinates=stop_coordinates,
+            )
+
         print(f"Load creado con éxito para el cliente {customer.name}")
     except Exception as e:
         print(f"Error al crear el Load: {e}")
