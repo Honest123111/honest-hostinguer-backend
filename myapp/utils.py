@@ -11,7 +11,7 @@ GMAIL_USER = "aventurastorefigures@gmail.com"
 GMAIL_PASSWORD = "jnwz asgl hwae mcdi"
 IMAP_SERVER = "imap.gmail.com"
 
-# Función para obtener coordenadas usando la API de Nominatim con reintentos
+# Función para obtener coordenadas usando Nominatim con Google Maps como respaldo
 def get_coordinates(address, zip_code=None, state=None, retries=3, delay=5):
     query = address
     if state:
@@ -19,8 +19,9 @@ def get_coordinates(address, zip_code=None, state=None, retries=3, delay=5):
     if zip_code:
         query += f", {zip_code}"
 
-    url = "https://nominatim.openstreetmap.org/search"
-    params = {
+    # Intentar obtener coordenadas con Nominatim
+    url_nominatim = "https://nominatim.openstreetmap.org/search"
+    params_nominatim = {
         "q": query,
         "format": "json",
         "limit": 1
@@ -31,7 +32,7 @@ def get_coordinates(address, zip_code=None, state=None, retries=3, delay=5):
 
     for attempt in range(retries):
         try:
-            response = requests.get(url, params=params, headers=headers, timeout=10)
+            response = requests.get(url_nominatim, params=params_nominatim, headers=headers, timeout=10)
             response.raise_for_status()
             data = response.json()
 
@@ -40,14 +41,35 @@ def get_coordinates(address, zip_code=None, state=None, retries=3, delay=5):
                 longitude = data[0]["lon"]
                 return f"{latitude},{longitude}"
             else:
-                print(f"No se encontraron coordenadas para la dirección: {query}")
-                return None
+                print(f"Nominatim no encontró coordenadas para la dirección: {query}")
         except requests.exceptions.RequestException as e:
-            print(f"Intento {attempt + 1} fallido al obtener coordenadas para {query}: {e}")
+            print(f"Intento {attempt + 1} fallido al obtener coordenadas con Nominatim para {query}: {e}")
             time.sleep(delay)
 
-    print(f"No se pudieron obtener coordenadas para {query} tras {retries} intentos.")
-    return None
+    # Intentar obtener coordenadas con Google Maps como respaldo
+    try:
+        google_api_key = "AIzaSyAmmAZPLEowFIuQpox5eEyGgLtaIaTPD_o"  # Reemplazar con tu clave de API
+        url_google = "https://maps.googleapis.com/maps/api/geocode/json"
+        params_google = {
+            "address": query,
+            "key": google_api_key
+        }
+
+        response = requests.get(url_google, params=params_google, timeout=10)
+        response.raise_for_status()
+        data = response.json()
+
+        if data["status"] == "OK":
+            location = data["results"][0]["geometry"]["location"]
+            latitude = location["lat"]
+            longitude = location["lng"]
+            return f"{latitude},{longitude}"
+        else:
+            print(f"Google Maps no encontró coordenadas para la dirección: {query}. Status: {data['status']}")
+            return None
+    except requests.exceptions.RequestException as e:
+        print(f"Error al obtener coordenadas con Google Maps para {query}: {e}")
+        return None
 
 
 # Función para leer correos y procesar cargas
