@@ -1,6 +1,47 @@
 from django.db import models
 from django.utils import timezone
+from django.contrib.auth.models import AbstractUser, Permission
+import uuid
 
+class Role(models.Model):
+    name = models.CharField(max_length=50, unique=True)  # Nombre único del rol
+    permissions = models.ManyToManyField(Permission, blank=True)  # Relación con permisos
+
+    def __str__(self):
+        return self.name
+
+class CarrierUser(AbstractUser):
+    CARRIER_TYPES = [
+        ('us', 'United States-based Carrier'),
+        ('international', 'International Carrier'),
+    ]
+    carrier_type = models.CharField(max_length=20, choices=CARRIER_TYPES, default='us')
+    first_name = models.CharField(max_length=50)
+    last_name = models.CharField(max_length=50)
+    email = models.EmailField(unique=True)
+    phone = models.CharField(max_length=15, blank=True, null=True)
+    DOT_number = models.CharField(max_length=20, blank=True, null=True)
+    license_guid = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+
+    # Ajustar related_name para evitar conflictos
+    groups = models.ManyToManyField(
+        'auth.Group',
+        related_name='carrieruser_groups',  # Cambiar el related_name
+        blank=True,
+        help_text='The groups this user belongs to.',
+    )
+    user_permissions = models.ManyToManyField(
+        'auth.Permission',
+        related_name='carrieruser_permissions',  # Cambiar el related_name
+        blank=True,
+        help_text='Specific permissions for this user.',
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.username} - {self.carrier_type}"
 
 class Customer(models.Model):
     id = models.AutoField(primary_key=True)

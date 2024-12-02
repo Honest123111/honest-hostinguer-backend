@@ -1,5 +1,6 @@
+from django.contrib.auth.models import Group
 from rest_framework import serializers
-from .models import Customer, AddressO, AddressD, Load, Stop, EquipmentType, Job_Type, OfferHistory
+from .models import CarrierUser, Customer, AddressO, AddressD, Load, Role, Stop, EquipmentType, Job_Type, OfferHistory
 
 class CustomerSerializer(serializers.ModelSerializer):
     class Meta:
@@ -126,3 +127,73 @@ class OfferHistorySerializer(serializers.ModelSerializer):
     class Meta:
         model = OfferHistory
         fields = '__all__'
+
+
+class RoleSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Role
+        fields = ['id', 'name', 'permissions']
+
+class AssignRoleSerializer(serializers.Serializer):
+    user_id = serializers.IntegerField()
+    role_id = serializers.IntegerField()
+
+    def validate_user_id(self, value):
+        if not CarrierUser.objects.filter(id=value).exists():
+            raise serializers.ValidationError("El usuario con este ID no existe.")
+        return value
+
+    def validate_role_id(self, value):
+        if not Role.objects.filter(id=value).exists():
+            raise serializers.ValidationError("El rol con este ID no existe.")
+        return value
+
+    def update(self, instance, validated_data):
+        user = CarrierUser.objects.get(id=validated_data['user_id'])
+        role = Role.objects.get(id=validated_data['role_id'])
+        user.role = role
+        user.save()
+        return user
+class RegisterSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CarrierUser
+        fields = ['username', 'email', 'password', 'first_name', 'last_name', 'phone', 'DOT_number', 'carrier_type']
+        extra_kwargs = {'password': {'write_only': True}}
+
+    def validate_email(self, value):
+        if CarrierUser.objects.filter(email=value).exists():
+            raise serializers.ValidationError("Este correo ya está registrado.")
+        return value
+
+    def create(self, validated_data):
+        user = CarrierUser.objects.create_user(
+            username=validated_data['username'],
+            email=validated_data['email'],
+            password=validated_data['password'],
+            first_name=validated_data.get('first_name'),
+            last_name=validated_data.get('last_name'),
+            phone=validated_data.get('phone'),
+            DOT_number=validated_data.get('DOT_number'),
+            carrier_type=validated_data.get('carrier_type')
+        )
+        carrier_group, _ = Group.objects.get_or_create(name="Carrier")
+        user.groups.add(carrier_group)
+        return user
+class RoleSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Role
+        fields = ['id', 'name', 'permissions']
+
+    permissions = serializers.StringRelatedField(many=True)
+
+class UserDetailSerializer(serializers.ModelSerializer):
+    role = RoleSerializer()  # Incluye los detalles del rol
+
+    class Meta:
+        model = CarrierUser
+        fields = ['id', 'username', 'email', 'first_name', 'last_name', 'phone', 'DOT_number', 'role']
+
+class UpdateUserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CarrierUser
+        fields = ['first_name', 'last_name', 'phone', 'DOT_number']

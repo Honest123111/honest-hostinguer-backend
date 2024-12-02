@@ -27,6 +27,8 @@ DEBUG = True
 
 ALLOWED_HOSTS = []
 
+AUTH_USER_MODEL = 'myapp.CarrierUser'  # Reemplaza "your_app_name" con el nombre de tu app
+
 
 # Application definition
 
@@ -39,9 +41,20 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'corsheaders',
     'rest_framework',  # Django REST Framework
+    'rest_framework_simplejwt',
     'myapp',    
     'django_celery_beat',      # Add the app here
 ]
+
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework.authentication.SessionAuthentication',
+        'rest_framework.authentication.TokenAuthentication',
+    ],
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.AllowAny',  # Permite el acceso a todos
+    ],
+}
 
 
 MIDDLEWARE = [
@@ -139,3 +152,14 @@ CELERY_BEAT_SCHEDULE = {
         'schedule': 60.0,  # Ejecutar cada 5 segundos
     },
 }
+
+from datetime import timedelta
+
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
+    'ROTATE_REFRESH_TOKENS': True,
+    'BLACKLIST_AFTER_ROTATION': True,
+    'AUTH_HEADER_TYPES': ('Bearer',),
+}
+
