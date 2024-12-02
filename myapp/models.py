@@ -84,20 +84,41 @@ class Load(models.Model):
         return f'{self.equipment_type} - {self.customer.name} - Priority: {self.priority}'
 
 
+from django.db import models
+from django.core.exceptions import ValidationError
+
+# Opciones para el tipo de acción
+ACTION_CHOICES = [
+    ('live_load', 'Live Load'),
+    ('dropped_trailer', 'Dropped Trailer'),
+    ('other', 'Other'),
+    ('delivery', 'Delivery'),  # Nueva opción: Delivery
+    ('pickup', 'Pickup'),      # Nueva opción: Pickup
+]
+
+# Función de validación para peso positivo
+def validate_positive_weight(value):
+    if value <= 0:
+        raise ValidationError('Estimated weight must be positive.')
+
+# Función de validación para cantidad positiva
+def validate_positive_quantity(value):
+    if value <= 0:
+        raise ValidationError('Quantity must be positive.')
+
 class Stop(models.Model):
     id = models.AutoField(primary_key=True)
-    load = models.ForeignKey(Load, on_delete=models.CASCADE, related_name='stops')
+    load = models.ForeignKey('Load', on_delete=models.CASCADE, related_name='stops')
     location = models.CharField(max_length=255)
     date_time = models.DateTimeField()
-    action_type = models.CharField(max_length=50)
-    estimated_weight = models.IntegerField()
-    quantity = models.IntegerField()
+    action_type = models.CharField(max_length=50, choices=ACTION_CHOICES)
+    estimated_weight = models.IntegerField(validators=[validate_positive_weight])  # Validación de peso positivo
+    quantity = models.IntegerField(validators=[validate_positive_quantity])  # Validación de cantidad positiva
     loaded_on = models.CharField(max_length=255)
-    coordinates = models.CharField(max_length=100)
+    coordinates = models.CharField(max_length=100)  # Usamos coordenadas como cadena por ahora
 
     def __str__(self):
         return f'{self.location} - {self.action_type}'
-
 
 class EquipmentType(models.Model):
     idmmequipment = models.AutoField(primary_key=True)
@@ -106,6 +127,39 @@ class EquipmentType(models.Model):
     def __str__(self):
         return self.name
 
+# Opciones posibles para el estado de la oferta
+OFFER_STATUS_CHOICES = [
+    ('pending', 'Pending'),
+    ('accepted', 'Accepted'),
+    ('rejected', 'Rejected'),
+]
+
+# Función de validación para asegurar que el monto de la oferta sea positivo
+def validate_positive_amount(value):
+    if value <= 0:
+        raise ValidationError(f'{value} is not a valid amount. The amount must be positive.')
+
+class OfferHistory(models.Model):
+    id = models.AutoField(primary_key=True)  # Identificador único para cada oferta
+    load = models.ForeignKey(Load, on_delete=models.CASCADE, related_name='offer_history')  # Relación con el modelo Load
+    amount = models.DecimalField(max_digits=10, decimal_places=2, validators=[validate_positive_amount])  # Monto de la oferta con validación
+    status = models.CharField(max_length=50, choices=OFFER_STATUS_CHOICES)  # Estado de la oferta
+    date = models.DateTimeField(default=timezone.now)  # Fecha y hora de la oferta
+    terms_change = models.BooleanField(default=False)  # Indicador de cambio en los términos
+    proposed_pickup_date = models.DateField(null=True, blank=True)  # Fecha propuesta para recogida
+    proposed_pickup_time = models.TimeField(null=True, blank=True)  # Hora propuesta para recogida
+    proposed_delivery_date = models.DateField(null=True, blank=True)  # Fecha propuesta para entrega
+    proposed_delivery_time = models.TimeField(null=True, blank=True)  # Hora propuesta para entrega
+
+    def __str__(self):
+        return f'Offer {self.amount} for {self.load}'
+
+    # Configuración de los índices para optimizar las consultas
+    class Meta:
+        indexes = [
+            models.Index(fields=['date']),  # Índice para la fecha
+            models.Index(fields=['status']),  # Índice para el estado
+        ]
 
 class Job_Type(models.Model):
     idmmjob = models.AutoField(primary_key=True)
@@ -113,22 +167,6 @@ class Job_Type(models.Model):
 
     def __str__(self):
         return self.name
-
-
-class OfferHistory(models.Model):
-    id = models.AutoField(primary_key=True)
-    load = models.ForeignKey(Load, on_delete=models.CASCADE, related_name='offer_history')
-    amount = models.DecimalField(max_digits=10, decimal_places=2)
-    status = models.CharField(max_length=50)
-    date = models.DateTimeField(default=timezone.now)
-    terms_change = models.BooleanField(default=False)
-    proposed_pickup_date = models.DateField(null=True, blank=True)
-    proposed_pickup_time = models.TimeField(null=True, blank=True)
-    proposed_delivery_date = models.DateField(null=True, blank=True)
-    proposed_delivery_time = models.TimeField(null=True, blank=True)
-
-    def __str__(self):
-        return f'Offer {self.amount} for {self.load}'
 
 
 class ProcessedEmail(models.Model):
