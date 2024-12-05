@@ -83,6 +83,11 @@ class AddressD(models.Model):
         return self.address
 
 
+from django.db import models
+from django.conf import settings
+from django.core.exceptions import ValidationError
+from django.utils import timezone
+
 class Load(models.Model):
     PRIORITY_CHOICES = [
         ('low', 'Low'),
@@ -96,11 +101,21 @@ class Load(models.Model):
         ('completed', 'Completed'),
     ]
 
+    TRACKING_CHOICES = [
+        ('not_started', 'Not Started'),
+        ('in_transit', 'In Transit'),
+        ('delivered', 'Delivered'),
+    ]
+
     idmmload = models.AutoField(primary_key=True)
-    origin = models.ForeignKey(AddressO, on_delete=models.CASCADE, related_name='load_origin')
-    destiny = models.ForeignKey(AddressD, on_delete=models.CASCADE, related_name='load_destiny')
+    origin = models.ForeignKey(
+        'AddressO', on_delete=models.CASCADE, related_name='load_origin'
+    )
+    destiny = models.ForeignKey(
+        'AddressD', on_delete=models.CASCADE, related_name='load_destiny'
+    )
     equipment_type = models.CharField(max_length=100)
-    customer = models.ForeignKey(Customer, on_delete=models.CASCADE)
+    customer = models.ForeignKey('Customer', on_delete=models.CASCADE)
     loaded_miles = models.IntegerField()
     total_weight = models.IntegerField()
     commodity = models.CharField(max_length=100)
@@ -111,22 +126,105 @@ class Load(models.Model):
     status = models.CharField(
         max_length=20,
         choices=STATUS_CHOICES,
-        default='pending',  # Estado predeterminado
+        default='pending',
     )
     priority = models.CharField(
         max_length=10,
         choices=PRIORITY_CHOICES,
-        default='medium',  # Prioridad por defecto es 'medium'
+        default='medium',
     )
-    created_at = models.DateTimeField(auto_now_add=True)  # Fecha de creación automática
-    updated_at = models.DateTimeField(auto_now=True)  # Fecha de última actualización automática
+    is_reserved = models.BooleanField(default=False)
+    assigned_user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='assigned_loads',
+    )
+    tracking_status = models.CharField(
+        max_length=20,
+        choices=TRACKING_CHOICES,
+        default='not_started',
+        help_text="Status of the load's transportation",
+    )
+    expiration_date = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Date and time when the load offer expires",
+    )
+    current_location = models.CharField(
+        max_length=255,
+        null=True,
+        blank=True,
+        help_text="Current location of the load in 'latitude,longitude' format",
+    )
+    equipment = models.ForeignKey(
+        'EquipmentType',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='loads',
+        help_text="Required equipment for this load",
+    )
+    payment_status = models.CharField(
+        max_length=20,
+        choices=[
+            ('pending', 'Pending'),
+            ('paid', 'Paid'),
+            ('failed', 'Failed'),
+        ],
+        default='pending',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def reserve_load(self, user):
+        """Reserva la carga para un usuario."""
+        if self.is_reserved:
+            raise ValueError("Load is already reserved.")
+        self.is_reserved = True
+        self.assigned_user = user
+        self.save()
+
+    def release_load(self):
+        """Libera la carga, eliminando su asignación."""
+        if not self.is_reserved:
+            raise ValueError("Load is not reserved.")
+        self.is_reserved = False
+        self.assigned_user = None
+        self.save()
+
+    def update_status(self, new_status):
+        """Actualiza el estado de la carga."""
+        if new_status not in dict(self.STATUS_CHOICES).keys():
+            raise ValidationError('Invalid status value.')
+        self.status = new_status
+        self.save()
+
+    def is_expired(self):
+        """Comprueba si la carga ha expirado."""
+        if self.expiration_date and timezone.now() > self.expiration_date:
+            return True
+        return False
+
+    def clean(self):
+        """Validaciones adicionales para el modelo."""
+        if self.total_weight <= 0:
+            raise ValidationError('Total weight must be greater than zero.')
+        if self.total_weight > 50000:  # Ejemplo de peso máximo permitido
+            raise ValidationError('Total weight exceeds the maximum allowed limit.')
+        if self.loaded_miles <= 0:
+            raise ValidationError('Loaded miles must be greater than zero.')
 
     def __str__(self):
         return f'{self.equipment_type} - {self.customer.name} - Priority: {self.priority}'
 
+    @staticmethod
+    def get_active_loads():
+        """Obtiene todas las cargas activas."""
+        return Load.objects.filter(status__in=['pending', 'in_progress'])
 
-from django.db import models
-from django.core.exceptions import ValidationError
+
 
 # Opciones para el tipo de acción
 ACTION_CHOICES = [
@@ -180,11 +278,34 @@ def validate_positive_amount(value):
     if value <= 0:
         raise ValidationError(f'{value} is not a valid amount. The amount must be positive.')
 
+from django.conf import settings
+from django.core.exceptions import ValidationError
+
 class OfferHistory(models.Model):
     id = models.AutoField(primary_key=True)  # Identificador único para cada oferta
-    load = models.ForeignKey(Load, on_delete=models.CASCADE, related_name='offer_history')  # Relación con el modelo Load
-    amount = models.DecimalField(max_digits=10, decimal_places=2, validators=[validate_positive_amount])  # Monto de la oferta con validación
-    status = models.CharField(max_length=50, choices=OFFER_STATUS_CHOICES)  # Estado de la oferta
+    load = models.ForeignKey(
+        'Load', on_delete=models.CASCADE, related_name='offer_history'
+    )  # Relación con el modelo Load
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        null=True,  # Permitir valores nulos para filas existentes
+        blank=True,  # Hacerlo opcional en los formularios
+        related_name='offers'
+    )
+
+    amount = models.DecimalField(
+        max_digits=10, decimal_places=2, validators=[validate_positive_amount]
+    )  # Monto de la oferta con validación
+    status = models.CharField(
+        max_length=50,
+        choices=[
+            ('pending', 'Pending'),
+            ('accepted', 'Accepted'),
+            ('rejected', 'Rejected'),
+        ],
+        default='pending',  # Estado inicial
+    )  # Estado de la oferta
     date = models.DateTimeField(default=timezone.now)  # Fecha y hora de la oferta
     terms_change = models.BooleanField(default=False)  # Indicador de cambio en los términos
     proposed_pickup_date = models.DateField(null=True, blank=True)  # Fecha propuesta para recogida
@@ -192,16 +313,39 @@ class OfferHistory(models.Model):
     proposed_delivery_date = models.DateField(null=True, blank=True)  # Fecha propuesta para entrega
     proposed_delivery_time = models.TimeField(null=True, blank=True)  # Hora propuesta para entrega
 
-    def __str__(self):
-        return f'Offer {self.amount} for {self.load}'
+    def accept_offer(self):
+        """Aceptar la oferta y asignar la carga al usuario."""
+        if self.status != 'pending':
+            raise ValidationError('Only pending offers can be accepted.')
+        if self.load.is_reserved:
+            raise ValidationError('This load is already reserved.')
 
-    # Configuración de los índices para optimizar las consultas
+        # Cambiar el estado de la oferta
+        self.status = 'accepted'
+        self.save()
+
+        # Asignar la carga al usuario
+        self.load.is_reserved = True
+        self.load.assigned_user = self.user
+        self.load.save()
+
+    def reject_offer(self):
+        """Rechazar la oferta."""
+        if self.status != 'pending':
+            raise ValidationError('Only pending offers can be rejected.')
+        self.status = 'rejected'
+        self.save()
+
+    def __str__(self):
+        """Representación en cadena del modelo."""
+        user_display = self.user.username if self.user else "No user"
+        return f'Offer {self.amount} by {user_display} for Load {self.load.idmmload}'
+
     class Meta:
         indexes = [
             models.Index(fields=['date']),  # Índice para la fecha
             models.Index(fields=['status']),  # Índice para el estado
         ]
-
 class Job_Type(models.Model):
     idmmjob = models.AutoField(primary_key=True)
     name = models.CharField(max_length=100)

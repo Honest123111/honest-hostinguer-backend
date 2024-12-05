@@ -94,13 +94,29 @@ class LoadStopsView(APIView):
 
 
 # OfferHistoryView
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
+from django.shortcuts import get_object_or_404
+from django.utils import timezone
+from myapp.models import OfferHistory, Load
+from myapp.serializers import OfferHistorySerializer
+from rest_framework.permissions import IsAuthenticated
+
+
 class OfferHistoryView(APIView):
+    permission_classes = [IsAuthenticated]
+
     def post(self, request, load_id):
         """Crear una oferta en el historial asociado a un Load específico."""
+        # Verifica si el usuario está autenticado
+        if not request.user or not request.user.is_authenticated:
+            return Response({"error": "Authentication is required to create an offer."}, status=401)
+
         load = get_object_or_404(Load, idmmload=load_id)
 
         amount = request.data.get("amount")
-        offer_status = request.data.get("status", "Pending")
+        offer_status = request.data.get("status", "pending")
         terms_change = request.data.get("terms_change", False)
         proposed_pickup_date = request.data.get("proposed_pickup_date")
         proposed_pickup_time = request.data.get("proposed_pickup_time")
@@ -110,8 +126,10 @@ class OfferHistoryView(APIView):
         if not amount:
             return Response({"error": "Offer amount is required"}, status=status.HTTP_400_BAD_REQUEST)
 
+        # Crear la oferta asociando el usuario logueado
         offer = OfferHistory.objects.create(
             load=load,
+            user=request.user,  # Asociar el usuario autenticado
             amount=amount,
             status=offer_status,
             date=timezone.now(),
@@ -128,9 +146,6 @@ class OfferHistoryView(APIView):
 
         serializer = OfferHistorySerializer(offer)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
-
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
 class AssignRoleView(APIView):
     """
     API para asignar un rol a un usuario.

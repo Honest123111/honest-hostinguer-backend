@@ -19,7 +19,6 @@ urlpatterns = [
     path('api/loads/<int:load_id>/stops/', LoadStopsView.as_view(), name='load-stops'),  # Ruta para manejar los stops de un load específico
     path('api/loads/<int:load_id>/stops/<int:stop_id>/', LoadStopsView.as_view(), name='edit-stop'),  # Ruta para editar/eliminar un stop específico
     path('api/loads/<int:load_id>/offers/', OfferHistoryView.as_view(), name='load-offers'),  # Ruta para manejar el historial de ofertas de un load
-    path('assign-role/', AssignRoleView.as_view(), name='assign-role'),
       # Endpoints de autenticación
     path('token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),  # Login para obtener el token
     path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'), # Refresh del token

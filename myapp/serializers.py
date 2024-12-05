@@ -1,5 +1,9 @@
+from datetime import timezone
+from django.conf import settings
 from django.contrib.auth.models import Group
 from rest_framework import serializers
+
+from django.apps import apps
 from .models import CarrierUser, Customer, AddressO, AddressD, Load, Role, Stop, EquipmentType, Job_Type, OfferHistory
 
 class CustomerSerializer(serializers.ModelSerializer):
@@ -32,8 +36,27 @@ class LoadSerializer(serializers.ModelSerializer):
     destiny = AddressDSerializer()
     customer = serializers.PrimaryKeyRelatedField(queryset=Customer.objects.all())
     stops = StopSerializer(many=True)
-    status = serializers.CharField(required=False, default='pending')  # Establecer 'pending' por defecto
-    priority = serializers.ChoiceField(choices=Load.PRIORITY_CHOICES, default='medium')  # Prioridad
+    equipment = serializers.PrimaryKeyRelatedField(
+        queryset=EquipmentType.objects.all(), allow_null=True, required=False
+    )
+    assigned_user = serializers.PrimaryKeyRelatedField(
+        queryset=apps.get_model(settings.AUTH_USER_MODEL).objects.all(),
+        allow_null=True,
+        required=False
+    )
+
+    # Campos adicionales
+    status = serializers.CharField(required=False, default='pending')  # Default 'pending'
+    priority = serializers.ChoiceField(choices=Load.PRIORITY_CHOICES, default='medium')  # Default 'medium'
+    tracking_status = serializers.ChoiceField(choices=Load.TRACKING_CHOICES, required=False, default='not_started')
+    expiration_date = serializers.DateTimeField(required=False, allow_null=True)
+    current_location = serializers.CharField(required=False, allow_null=True)
+    payment_status = serializers.ChoiceField(
+        choices=[('pending', 'Pending'), ('paid', 'Paid'), ('failed', 'Failed')],
+        default='pending',
+        required=False,
+    )
+    is_reserved = serializers.BooleanField(read_only=True)  # Solo lectura
     created_at = serializers.DateTimeField(read_only=True)  # Solo lectura
     updated_at = serializers.DateTimeField(read_only=True)  # Solo lectura
 
@@ -42,75 +65,83 @@ class LoadSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
     def to_representation(self, instance):
-        # Personalizamos la representación para incluir el customer como un objeto completo
+        """Personalizamos la representación para incluir datos completos de relaciones."""
         representation = super().to_representation(instance)
         representation['customer'] = CustomerSerializer(instance.customer).data
         representation['origin'] = AddressOSerializer(instance.origin).data
         representation['destiny'] = AddressDSerializer(instance.destiny).data
         representation['stops'] = StopSerializer(instance.stops.all(), many=True).data
+        representation['assigned_user'] = (
+            instance.assigned_user.username if instance.assigned_user else None
+        )
+        if instance.equipment:
+            representation['equipment'] = EquipmentType.objects.get(idmmequipment=instance.equipment.idmmequipment).name
         return representation
 
     def create(self, validated_data):
-        # Extraemos y eliminamos los datos de las relaciones
+        """Crear una nueva carga y sus relaciones."""
         origin_data = validated_data.pop('origin')
         destiny_data = validated_data.pop('destiny')
         stops_data = validated_data.pop('stops', [])
         customer = validated_data.pop('customer')
-        status = validated_data.pop('status', 'pending')  # Default status is 'pending'
-        priority = validated_data.pop('priority', 'medium')  # Default priority is 'medium'
 
-        # Creamos las instancias de los modelos relacionados
+        # Crear las instancias relacionadas
         origin = AddressO.objects.create(**origin_data)
         destiny = AddressD.objects.create(**destiny_data)
 
-        # Creamos la carga
+        # Crear la carga
         load = Load.objects.create(
-            origin=origin, destiny=destiny, customer=customer, status=status, priority=priority, **validated_data
+            origin=origin, destiny=destiny, customer=customer, **validated_data
         )
 
-        # Creamos los "stops" relacionados con la carga
+        # Crear los stops relacionados
         for stop_data in stops_data:
             Stop.objects.create(load=load, **stop_data)
 
         return load
 
     def update(self, instance, validated_data):
-        # Actualización de relaciones
+        """Actualizar una carga existente y sus relaciones."""
         origin_data = validated_data.pop('origin', None)
         destiny_data = validated_data.pop('destiny', None)
         stops_data = validated_data.pop('stops', None)
-        priority = validated_data.pop('priority', None)  # Se actualiza el campo de prioridad
 
-        # Actualización de 'origin' si los datos están presentes
+        # Verificar si la carga está reservada antes de permitir ciertos cambios
+        if instance.is_reserved:
+            raise serializers.ValidationError("Cannot modify a reserved load.")
+
+        # Actualizar origen
         if origin_data:
             origin_instance = instance.origin
             for attr, value in origin_data.items():
                 setattr(origin_instance, attr, value)
             origin_instance.save()
 
-        # Actualización de 'destiny' si los datos están presentes
+        # Actualizar destino
         if destiny_data:
             destiny_instance = instance.destiny
             for attr, value in destiny_data.items():
                 setattr(destiny_instance, attr, value)
             destiny_instance.save()
 
-        # Actualización de 'stops' si los datos están presentes
+        # Actualizar stops
         if stops_data:
-            instance.stops.clear()  # Eliminamos los stops actuales
+            instance.stops.clear()  # Eliminar stops actuales
             for stop_data in stops_data:
-                Stop.objects.create(load=instance, **stop_data)  # Creamos los nuevos stops
+                Stop.objects.create(load=instance, **stop_data)
 
-        # Actualizamos los campos restantes del load, incluido el campo de prioridad
-        if priority:
-            instance.priority = priority
-
+        # Actualizar otros campos
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
         instance.save()
 
         return instance
 
+    def validate(self, data):
+        """Validaciones personalizadas."""
+        if data.get('expiration_date') and data['expiration_date'] < timezone.now():
+            raise serializers.ValidationError("Expiration date cannot be in the past.")
+        return data
 class EquipmentTypeSerializer(serializers.ModelSerializer):
     class Meta:
         model = EquipmentType
@@ -124,10 +155,16 @@ class JobTypeSerializer(serializers.ModelSerializer):
 
 
 class OfferHistorySerializer(serializers.ModelSerializer):
-    class Meta:
+     class Meta:
         model = OfferHistory
-        fields = '__all__'
+        exclude = ['user']  # Excluir el campo para que no se envíe en la solicitud
 
+        def create(self, validated_data):
+            # Asignar automáticamente el usuario logueado al crear la oferta
+            request = self.context.get('request')
+            if request and hasattr(request, 'user'):
+                validated_data['user'] = request.user
+            return super().create(validated_data)
 
 class RoleSerializer(serializers.ModelSerializer):
     class Meta:
