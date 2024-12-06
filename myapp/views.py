@@ -18,6 +18,7 @@ from django.shortcuts import get_object_or_404
 from .serializers import WarningSerializer
 from rest_framework.permissions import IsAuthenticated
 
+
 # Customer ViewSet
 class CustomerViewSet(viewsets.ModelViewSet):
     queryset = Customer.objects.all()
@@ -26,7 +27,7 @@ class CustomerViewSet(viewsets.ModelViewSet):
 
 # Load ViewSet
 class LoadViewSet(viewsets.ModelViewSet):
-    queryset = Load.objects.all()
+    queryset = Load.objects.prefetch_related('stops').all()  # Pre-fetch stops para optimizar
     serializer_class = LoadSerializer
 
 
@@ -42,28 +43,29 @@ class EquipmentTypeViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = EquipmentTypeSerializer
 
 
-# Consolidación de LoadStopsView
+# LoadStopsView para operaciones específicas en Stops de un Load
 class LoadStopsView(APIView):
+
     def get(self, request, load_id):
         """Obtener todos los stops asociados a un Load específico."""
         try:
-            load = Load.objects.get(idmmload=load_id)
-            stops = load.stops.all()
+            load = get_object_or_404(Load, idmmload=load_id)
+            stops = load.stops.all()  # Usa related_name para obtener stops
             serializer = StopSerializer(stops, many=True)
             return Response(serializer.data, status=status.HTTP_200_OK)
-        except Load.DoesNotExist:
-            return Response({"error": "Load not found"}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({"error": f"Error retrieving stops: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     def post(self, request, load_id):
         """Crear nuevos stops asociados a un Load específico."""
         try:
-            load = Load.objects.get(idmmload=load_id)
+            load = get_object_or_404(Load, idmmload=load_id)
         except Load.DoesNotExist:
             return Response({"error": "Load not found"}, status=status.HTTP_404_NOT_FOUND)
 
         stop_data = request.data.get("stops", [])
         for stop in stop_data:
-            stop["load"] = load.id  # Asegura la asociación correcta
+            stop["load"] = load.idmmload  # Asociar con el campo correcto
 
         serializer = StopSerializer(data=stop_data, many=True)
         if serializer.is_valid():
@@ -73,10 +75,7 @@ class LoadStopsView(APIView):
 
     def put(self, request, load_id, stop_id):
         """Actualizar un stop existente."""
-        try:
-            stop = Stop.objects.get(id=stop_id, load_id=load_id)
-        except Stop.DoesNotExist:
-            return Response({"error": "Stop not found"}, status=status.HTTP_404_NOT_FOUND)
+        stop = get_object_or_404(Stop, id=stop_id, load_id=load_id)
 
         serializer = StopSerializer(stop, data=request.data, partial=True)
         if serializer.is_valid():
@@ -86,14 +85,9 @@ class LoadStopsView(APIView):
 
     def delete(self, request, load_id, stop_id):
         """Eliminar un stop existente."""
-        try:
-            stop = Stop.objects.get(id=stop_id, load_id=load_id)
-        except Stop.DoesNotExist:
-            return Response({"error": "Stop not found"}, status=status.HTTP_404_NOT_FOUND)
-
+        stop = get_object_or_404(Stop, id=stop_id, load_id=load_id)
         stop.delete()
         return Response({"message": "Stop deleted successfully"}, status=status.HTTP_204_NO_CONTENT)
-
 
 
 class OfferHistoryView(APIView):

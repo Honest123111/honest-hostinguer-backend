@@ -2,6 +2,9 @@ from django.db import models
 from django.utils import timezone
 from django.contrib.auth.models import AbstractUser, Permission
 import uuid
+from django.conf import settings
+from django.utils.timezone import now
+
 
 class Role(models.Model):
     name = models.CharField(max_length=50, unique=True)  # Nombre único del rol
@@ -83,12 +86,6 @@ class AddressD(models.Model):
     def __str__(self):
         return self.address
 
-
-from django.db import models
-from django.conf import settings
-from django.core.exceptions import ValidationError
-from django.utils import timezone
-
 class Load(models.Model):
     PRIORITY_CHOICES = [
         ('low', 'Low'),
@@ -107,7 +104,6 @@ class Load(models.Model):
         ('in_transit', 'In Transit'),
         ('delivered', 'Delivered'),
     ]
-
     idmmload = models.AutoField(primary_key=True)
     origin = models.ForeignKey(
         'AddressO', on_delete=models.CASCADE, related_name='load_origin'
@@ -223,9 +219,6 @@ class Load(models.Model):
         if self.loaded_miles <= 0:
             raise ValidationError('Loaded miles must be greater than zero.')
 
-    def __str__(self):
-        return f'{self.equipment_type} - {self.customer.name} - Priority: {self.priority}'
-    
     def add_warning(self, warning):
         """Agrega una advertencia a esta carga."""
         self.warnings.add(warning)
@@ -268,18 +261,22 @@ def validate_positive_quantity(value):
         raise ValidationError('Quantity must be positive.')
 
 class Stop(models.Model):
-    id = models.AutoField(primary_key=True)
-    load = models.ForeignKey('Load', on_delete=models.CASCADE, related_name='stops')
+    load = models.ForeignKey(
+        'Load',
+        on_delete=models.CASCADE,
+        related_name='stops'
+    )
     location = models.CharField(max_length=255)
     date_time = models.DateTimeField()
     action_type = models.CharField(max_length=50, choices=ACTION_CHOICES)
-    estimated_weight = models.IntegerField(validators=[validate_positive_weight])  # Validación de peso positivo
-    quantity = models.IntegerField(validators=[validate_positive_quantity])  # Validación de cantidad positiva
-    loaded_on = models.CharField(max_length=255)
-    coordinates = models.CharField(max_length=100)  # Usamos coordenadas como cadena por ahora
+    estimated_weight = models.IntegerField(validators=[validate_positive_weight])
+    quantity = models.IntegerField(validators=[validate_positive_quantity])
+    coordinates = models.CharField(max_length=100)
+    loaded_on = models.DateTimeField(default=now, editable=False)
 
     def __str__(self):
         return f'{self.location} - {self.action_type}'
+
 
 class EquipmentType(models.Model):
     idmmequipment = models.AutoField(primary_key=True)

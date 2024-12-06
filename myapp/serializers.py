@@ -2,9 +2,12 @@ from datetime import timezone
 from django.conf import settings
 from django.contrib.auth.models import Group
 from rest_framework import serializers
-from myapp.models import Warning  # Asegúrate de que la importación sea 
 from django.apps import apps
-from .models import CarrierUser, Customer, AddressO, AddressD, Load, Role, Stop, EquipmentType, Job_Type, OfferHistory
+from .models import (
+    CarrierUser, Customer, AddressO, AddressD, Load, Role, Stop,
+    EquipmentType, Job_Type, OfferHistory, Warning
+)
+
 
 class CustomerSerializer(serializers.ModelSerializer):
     class Meta:
@@ -27,40 +30,35 @@ class AddressDSerializer(serializers.ModelSerializer):
 class StopSerializer(serializers.ModelSerializer):
     class Meta:
         model = Stop
-        fields = '__all__'
+        fields = ['load', 'location', 'date_time', 'action_type', 'estimated_weight', 'quantity', 'coordinates', 'loaded_on']
+        read_only_fields = ['loaded_on']
 
-
-from rest_framework import serializers
-from django.apps import apps
-from django.conf import settings
-from django.utils import timezone
-from .models import Load, AddressO, AddressD, Customer, Stop, EquipmentType, Warning
+    def validate_date_time(self, value):
+        if value is None:
+            raise serializers.ValidationError("The `date_time` field is required.")
+        return value
 
 class LoadSerializer(serializers.ModelSerializer):
-    # Relaciones con otros modelos
-    origin = serializers.PrimaryKeyRelatedField(queryset=AddressO.objects.all())
-    destiny = serializers.PrimaryKeyRelatedField(queryset=AddressD.objects.all())
+    # Nested serializers for related fields
+    origin = AddressOSerializer()
+    destiny = AddressDSerializer()
     customer = serializers.PrimaryKeyRelatedField(queryset=Customer.objects.all())
-    stops = serializers.ListSerializer(
-        child=serializers.DictField(),
-        required=False,
-    )
+    stops = StopSerializer(many=True, read_only=True)
     equipment = serializers.PrimaryKeyRelatedField(
         queryset=EquipmentType.objects.all(), allow_null=True, required=False
+    )
+    warnings = serializers.PrimaryKeyRelatedField(
+        many=True, queryset=Warning.objects.all(), required=False
     )
     assigned_user = serializers.PrimaryKeyRelatedField(
         queryset=apps.get_model(settings.AUTH_USER_MODEL).objects.all(),
         allow_null=True,
         required=False
     )
-    warnings = serializers.PrimaryKeyRelatedField(
-        many=True,
-        queryset=Warning.objects.all()
-    )
 
-    # Campos adicionales
+    # Additional fields
     status = serializers.CharField(required=False, default='pending')  # Default 'pending'
-    priority = serializers.ChoiceField(choices=Load.PRIORITY_CHOICES, default='medium')  # Default 'medium'
+    priority = serializers.ChoiceField(choices=Load.PRIORITY_CHOICES, default='medium')
     tracking_status = serializers.ChoiceField(choices=Load.TRACKING_CHOICES, required=False, default='not_started')
     expiration_date = serializers.DateTimeField(required=False, allow_null=True)
     current_location = serializers.CharField(required=False, allow_null=True)
@@ -69,40 +67,21 @@ class LoadSerializer(serializers.ModelSerializer):
         default='pending',
         required=False,
     )
-    is_reserved = serializers.BooleanField(read_only=True)  # Solo lectura
-    created_at = serializers.DateTimeField(read_only=True)  # Solo lectura
-    updated_at = serializers.DateTimeField(read_only=True)  # Solo lectura
+    is_reserved = serializers.BooleanField(read_only=True)
+    created_at = serializers.DateTimeField(read_only=True)
+    updated_at = serializers.DateTimeField(read_only=True)
 
     class Meta:
         model = Load
         fields = '__all__'
 
     def to_representation(self, instance):
-        """Personalizamos la representación para incluir datos completos de relaciones."""
+        """Customize representation for related objects."""
         representation = super().to_representation(instance)
-        representation['customer'] = {
-            'id': instance.customer.id,
-            'name': instance.customer.name
-        }
-        representation['origin'] = {
-            'id': instance.origin.id,
-            'address': instance.origin.address
-        }
-        representation['destiny'] = {
-            'id': instance.destiny.id,
-            'address': instance.destiny.address
-        }
-        representation['stops'] = [
-            {
-                'id': stop.id,
-                'location': stop.location,
-                'date_time': stop.date_time
-            }
-            for stop in instance.stops.all()
-        ]
-        representation['assigned_user'] = (
-            instance.assigned_user.username if instance.assigned_user else None
-        )
+        representation['origin'] = AddressOSerializer(instance.origin).data
+        representation['destiny'] = AddressDSerializer(instance.destiny).data
+        representation['customer'] = CustomerSerializer(instance.customer).data
+        representation['stops'] = StopSerializer(instance.stops.all(), many=True).data
         if instance.equipment:
             representation['equipment'] = {
                 'id': instance.equipment.idmmequipment,
@@ -112,58 +91,64 @@ class LoadSerializer(serializers.ModelSerializer):
             {'id': warning.id, 'description': warning.description}
             for warning in instance.warnings.all()
         ]
+        representation['assigned_user'] = (
+            instance.assigned_user.username if instance.assigned_user else None
+        )
         return representation
 
     def create(self, validated_data):
-        """Crear una nueva carga y sus relaciones."""
-        origin = validated_data.pop('origin')
-        destiny = validated_data.pop('destiny')
+        """Create a new load with related objects."""
+        origin_data = validated_data.pop('origin')
+        destiny_data = validated_data.pop('destiny')
         stops_data = validated_data.pop('stops', [])
         warnings_data = validated_data.pop('warnings', [])
 
-        load = Load.objects.create(
-            origin=origin, destiny=destiny, **validated_data
-        )
+        # Create related objects
+        origin = AddressO.objects.create(**origin_data)
+        destiny = AddressD.objects.create(**destiny_data)
 
-        # Crear stops relacionados
+        # Create the load
+        load = Load.objects.create(origin=origin, destiny=destiny, **validated_data)
+
+        # Add stops to the load
         for stop_data in stops_data:
             Stop.objects.create(load=load, **stop_data)
 
-        # Asociar warnings
+        # Set warnings for the load
         load.warnings.set(warnings_data)
 
         return load
 
     def update(self, instance, validated_data):
-        """Actualizar una carga existente y sus relaciones."""
-        origin = validated_data.pop('origin', None)
-        destiny = validated_data.pop('destiny', None)
+        """Update a load and its related objects."""
+        origin_data = validated_data.pop('origin', None)
+        destiny_data = validated_data.pop('destiny', None)
         stops_data = validated_data.pop('stops', None)
         warnings_data = validated_data.pop('warnings', None)
 
-        # Verificar si la carga está reservada antes de permitir ciertos cambios
-        if instance.is_reserved:
-            raise serializers.ValidationError("Cannot modify a reserved load.")
+        # Update origin
+        if origin_data:
+            for attr, value in origin_data.items():
+                setattr(instance.origin, attr, value)
+            instance.origin.save()
 
-        # Actualizar origen
-        if origin:
-            instance.origin = origin
+        # Update destiny
+        if destiny_data:
+            for attr, value in destiny_data.items():
+                setattr(instance.destiny, attr, value)
+            instance.destiny.save()
 
-        # Actualizar destino
-        if destiny:
-            instance.destiny = destiny
-
-        # Actualizar stops
-        if stops_data is not None:
-            instance.stops.all().delete()
+        # Update stops
+        if stops_data:
+            instance.stops.all().delete()  # Clear existing stops
             for stop_data in stops_data:
                 Stop.objects.create(load=instance, **stop_data)
 
-        # Actualizar warnings
-        if warnings_data is not None:
+        # Update warnings
+        if warnings_data:
             instance.warnings.set(warnings_data)
 
-        # Actualizar otros campos
+        # Update other fields
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
         instance.save()
@@ -171,10 +156,12 @@ class LoadSerializer(serializers.ModelSerializer):
         return instance
 
     def validate(self, data):
-        """Validaciones personalizadas."""
+        """Custom validations."""
         if data.get('expiration_date') and data['expiration_date'] < timezone.now():
             raise serializers.ValidationError("Expiration date cannot be in the past.")
         return data
+
+
 class EquipmentTypeSerializer(serializers.ModelSerializer):
     class Meta:
         model = EquipmentType
@@ -188,21 +175,24 @@ class JobTypeSerializer(serializers.ModelSerializer):
 
 
 class OfferHistorySerializer(serializers.ModelSerializer):
-     class Meta:
+    class Meta:
         model = OfferHistory
-        exclude = ['user']  # Excluir el campo para que no se envíe en la solicitud
+        fields = '__all__'
 
-        def create(self, validated_data):
-            # Asignar automáticamente el usuario logueado al crear la oferta
-            request = self.context.get('request')
-            if request and hasattr(request, 'user'):
-                validated_data['user'] = request.user
-            return super().create(validated_data)
+
+class WarningSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Warning
+        fields = '__all__'
+
 
 class RoleSerializer(serializers.ModelSerializer):
+    permissions = serializers.StringRelatedField(many=True)
+
     class Meta:
         model = Role
         fields = ['id', 'name', 'permissions']
+
 
 class AssignRoleSerializer(serializers.Serializer):
     user_id = serializers.IntegerField()
@@ -210,12 +200,12 @@ class AssignRoleSerializer(serializers.Serializer):
 
     def validate_user_id(self, value):
         if not CarrierUser.objects.filter(id=value).exists():
-            raise serializers.ValidationError("El usuario con este ID no existe.")
+            raise serializers.ValidationError("The user with this ID does not exist.")
         return value
 
     def validate_role_id(self, value):
         if not Role.objects.filter(id=value).exists():
-            raise serializers.ValidationError("El rol con este ID no existe.")
+            raise serializers.ValidationError("The role with this ID does not exist.")
         return value
 
     def update(self, instance, validated_data):
@@ -224,6 +214,8 @@ class AssignRoleSerializer(serializers.Serializer):
         user.role = role
         user.save()
         return user
+
+
 class RegisterSerializer(serializers.ModelSerializer):
     class Meta:
         model = CarrierUser
@@ -232,7 +224,7 @@ class RegisterSerializer(serializers.ModelSerializer):
 
     def validate_email(self, value):
         if CarrierUser.objects.filter(email=value).exists():
-            raise serializers.ValidationError("Este correo ya está registrado.")
+            raise serializers.ValidationError("This email is already registered.")
         return value
 
     def create(self, validated_data):
@@ -249,26 +241,17 @@ class RegisterSerializer(serializers.ModelSerializer):
         carrier_group, _ = Group.objects.get_or_create(name="Carrier")
         user.groups.add(carrier_group)
         return user
-class RoleSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Role
-        fields = ['id', 'name', 'permissions']
 
-    permissions = serializers.StringRelatedField(many=True)
 
 class UserDetailSerializer(serializers.ModelSerializer):
-    role = RoleSerializer()  # Incluye los detalles del rol
+    role = RoleSerializer()  # Include role details
 
     class Meta:
         model = CarrierUser
         fields = ['id', 'username', 'email', 'first_name', 'last_name', 'phone', 'DOT_number', 'role']
 
+
 class UpdateUserSerializer(serializers.ModelSerializer):
     class Meta:
         model = CarrierUser
         fields = ['first_name', 'last_name', 'phone', 'DOT_number']
-
-class WarningSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Warning
-        fields = '__all__'
