@@ -2,6 +2,7 @@ from email.headerregistry import Group
 from rest_framework import viewsets, status
 from rest_framework.views import APIView
 from rest_framework.response import Response
+from .models import Warning
 from .models import Customer, Load, Stop, EquipmentType, OfferHistory
 from .serializers import (
     AssignRoleSerializer,
@@ -14,7 +15,8 @@ from .serializers import (
 )
 from django.utils import timezone
 from django.shortcuts import get_object_or_404
-
+from .serializers import WarningSerializer
+from rest_framework.permissions import IsAuthenticated
 
 # Customer ViewSet
 class CustomerViewSet(viewsets.ModelViewSet):
@@ -93,16 +95,6 @@ class LoadStopsView(APIView):
         return Response({"message": "Stop deleted successfully"}, status=status.HTTP_204_NO_CONTENT)
 
 
-# OfferHistoryView
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework import status
-from django.shortcuts import get_object_or_404
-from django.utils import timezone
-from myapp.models import OfferHistory, Load
-from myapp.serializers import OfferHistorySerializer
-from rest_framework.permissions import IsAuthenticated
-
 
 class OfferHistoryView(APIView):
     permission_classes = [IsAuthenticated]
@@ -168,3 +160,7 @@ class RegisterView(APIView):
             return Response({"message": "User registered successfully"}, status=status.HTTP_201_CREATED)
         else:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
+class WarningViewSet(viewsets.ModelViewSet):
+    queryset = Warning.objects.all()
+    serializer_class = WarningSerializer

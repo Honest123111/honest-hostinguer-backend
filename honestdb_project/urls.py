@@ -3,7 +3,7 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from myapp import views
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
-from myapp.views import AssignRoleView, LoadStopsView, OfferHistoryView, RegisterView
+from myapp.views import AssignRoleView, LoadStopsView, OfferHistoryView, RegisterView, WarningViewSet
 
 # Registrar los viewsets en el router
 router = DefaultRouter()
@@ -11,6 +11,7 @@ router.register(r'customers', views.CustomerViewSet)
 router.register(r'loads', views.LoadViewSet)
 router.register(r'stops', views.StopViewSet)
 router.register(r'equipment-types', views.EquipmentTypeViewSet)
+router.register(r'warnings', WarningViewSet)  # Registra el endpoint para advertencias
 
 # Definir las rutas adicionales para vistas personalizadas
 urlpatterns = [

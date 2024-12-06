@@ -15,6 +15,7 @@ class CarrierUser(AbstractUser):
         ('us', 'United States-based Carrier'),
         ('international', 'International Carrier'),
     ]
+    id = models.AutoField(primary_key=True)  # Definir explícitamente el campo id
     carrier_type = models.CharField(max_length=20, choices=CARRIER_TYPES, default='us')
     first_name = models.CharField(max_length=50)
     last_name = models.CharField(max_length=50)
@@ -175,6 +176,12 @@ class Load(models.Model):
         ],
         default='pending',
     )
+    warnings = models.ManyToManyField(
+        'Warning',
+        related_name='loads',
+        blank=True,
+        help_text="Advertencias asociadas a esta carga"
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -218,12 +225,27 @@ class Load(models.Model):
 
     def __str__(self):
         return f'{self.equipment_type} - {self.customer.name} - Priority: {self.priority}'
+    
+    def add_warning(self, warning):
+        """Agrega una advertencia a esta carga."""
+        self.warnings.add(warning)
 
+    def remove_warning(self, warning):
+        """Elimina una advertencia de esta carga."""
+        self.warnings.remove(warning)
+
+    def list_warnings(self):
+        """Devuelve una lista de advertencias asociadas a esta carga."""
+        return self.warnings.all()
+
+    def __str__(self):
+        return f"Load {self.idmmload} - {self.status}"
     @staticmethod
     def get_active_loads():
         """Obtiene todas las cargas activas."""
         return Load.objects.filter(status__in=['pending', 'in_progress'])
-
+    
+    
 
 
 # Opciones para el tipo de acción
@@ -359,3 +381,50 @@ class ProcessedEmail(models.Model):
 
     def __str__(self):
         return self.message_id
+
+class Warning(models.Model):
+    id = models.AutoField(primary_key=True)
+    description = models.CharField(max_length=255, unique=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    load = models.ForeignKey(
+        'Load',
+        on_delete=models.CASCADE,
+        related_name='associated_warnings',
+        null=True,  # Permitir nulos
+        blank=True  # Hacer opcional en formularios
+    )
+    reported_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='reported_warnings',
+        null=True,  # Permitir nulos
+        blank=True  # Hacer opcional en formularios
+    )
+
+    def __str__(self):
+        return self.description
+
+    @staticmethod
+    def create_default_warnings():
+        """Creates predefined warnings in the database."""
+        warnings = [
+            "Loaded overweight",
+            "Weather",
+            "Hours of Service",
+            "Scheduling Error",
+            "Yard Congestion",
+            "Driver legal break",
+            "Rail delay",
+            "USPS delay",
+            "Relay app malfunction",
+            "Relay navigation unsafe route",
+            "Pallet quality issue",
+            "Site badging access issue",
+            "Cell service issue",
+            "Driver turned away",
+            "Refueling",
+            "Live lift ramp"
+        ]
+        for warning in warnings:
+            Warning.objects.get_or_create(description=warning)

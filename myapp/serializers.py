@@ -2,7 +2,7 @@ from datetime import timezone
 from django.conf import settings
 from django.contrib.auth.models import Group
 from rest_framework import serializers
-
+from myapp.models import Warning  # Asegúrate de que la importación sea 
 from django.apps import apps
 from .models import CarrierUser, Customer, AddressO, AddressD, Load, Role, Stop, EquipmentType, Job_Type, OfferHistory
 
@@ -30,12 +30,21 @@ class StopSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
+from rest_framework import serializers
+from django.apps import apps
+from django.conf import settings
+from django.utils import timezone
+from .models import Load, AddressO, AddressD, Customer, Stop, EquipmentType, Warning
+
 class LoadSerializer(serializers.ModelSerializer):
     # Relaciones con otros modelos
-    origin = AddressOSerializer()
-    destiny = AddressDSerializer()
+    origin = serializers.PrimaryKeyRelatedField(queryset=AddressO.objects.all())
+    destiny = serializers.PrimaryKeyRelatedField(queryset=AddressD.objects.all())
     customer = serializers.PrimaryKeyRelatedField(queryset=Customer.objects.all())
-    stops = StopSerializer(many=True)
+    stops = serializers.ListSerializer(
+        child=serializers.DictField(),
+        required=False,
+    )
     equipment = serializers.PrimaryKeyRelatedField(
         queryset=EquipmentType.objects.all(), allow_null=True, required=False
     )
@@ -43,6 +52,10 @@ class LoadSerializer(serializers.ModelSerializer):
         queryset=apps.get_model(settings.AUTH_USER_MODEL).objects.all(),
         allow_null=True,
         required=False
+    )
+    warnings = serializers.PrimaryKeyRelatedField(
+        many=True,
+        queryset=Warning.objects.all()
     )
 
     # Campos adicionales
@@ -67,68 +80,88 @@ class LoadSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         """Personalizamos la representación para incluir datos completos de relaciones."""
         representation = super().to_representation(instance)
-        representation['customer'] = CustomerSerializer(instance.customer).data
-        representation['origin'] = AddressOSerializer(instance.origin).data
-        representation['destiny'] = AddressDSerializer(instance.destiny).data
-        representation['stops'] = StopSerializer(instance.stops.all(), many=True).data
+        representation['customer'] = {
+            'id': instance.customer.id,
+            'name': instance.customer.name
+        }
+        representation['origin'] = {
+            'id': instance.origin.id,
+            'address': instance.origin.address
+        }
+        representation['destiny'] = {
+            'id': instance.destiny.id,
+            'address': instance.destiny.address
+        }
+        representation['stops'] = [
+            {
+                'id': stop.id,
+                'location': stop.location,
+                'date_time': stop.date_time
+            }
+            for stop in instance.stops.all()
+        ]
         representation['assigned_user'] = (
             instance.assigned_user.username if instance.assigned_user else None
         )
         if instance.equipment:
-            representation['equipment'] = EquipmentType.objects.get(idmmequipment=instance.equipment.idmmequipment).name
+            representation['equipment'] = {
+                'id': instance.equipment.idmmequipment,
+                'name': instance.equipment.name
+            }
+        representation['warnings'] = [
+            {'id': warning.id, 'description': warning.description}
+            for warning in instance.warnings.all()
+        ]
         return representation
 
     def create(self, validated_data):
         """Crear una nueva carga y sus relaciones."""
-        origin_data = validated_data.pop('origin')
-        destiny_data = validated_data.pop('destiny')
+        origin = validated_data.pop('origin')
+        destiny = validated_data.pop('destiny')
         stops_data = validated_data.pop('stops', [])
-        customer = validated_data.pop('customer')
+        warnings_data = validated_data.pop('warnings', [])
 
-        # Crear las instancias relacionadas
-        origin = AddressO.objects.create(**origin_data)
-        destiny = AddressD.objects.create(**destiny_data)
-
-        # Crear la carga
         load = Load.objects.create(
-            origin=origin, destiny=destiny, customer=customer, **validated_data
+            origin=origin, destiny=destiny, **validated_data
         )
 
-        # Crear los stops relacionados
+        # Crear stops relacionados
         for stop_data in stops_data:
             Stop.objects.create(load=load, **stop_data)
+
+        # Asociar warnings
+        load.warnings.set(warnings_data)
 
         return load
 
     def update(self, instance, validated_data):
         """Actualizar una carga existente y sus relaciones."""
-        origin_data = validated_data.pop('origin', None)
-        destiny_data = validated_data.pop('destiny', None)
+        origin = validated_data.pop('origin', None)
+        destiny = validated_data.pop('destiny', None)
         stops_data = validated_data.pop('stops', None)
+        warnings_data = validated_data.pop('warnings', None)
 
         # Verificar si la carga está reservada antes de permitir ciertos cambios
         if instance.is_reserved:
             raise serializers.ValidationError("Cannot modify a reserved load.")
 
         # Actualizar origen
-        if origin_data:
-            origin_instance = instance.origin
-            for attr, value in origin_data.items():
-                setattr(origin_instance, attr, value)
-            origin_instance.save()
+        if origin:
+            instance.origin = origin
 
         # Actualizar destino
-        if destiny_data:
-            destiny_instance = instance.destiny
-            for attr, value in destiny_data.items():
-                setattr(destiny_instance, attr, value)
-            destiny_instance.save()
+        if destiny:
+            instance.destiny = destiny
 
         # Actualizar stops
-        if stops_data:
-            instance.stops.clear()  # Eliminar stops actuales
+        if stops_data is not None:
+            instance.stops.all().delete()
             for stop_data in stops_data:
                 Stop.objects.create(load=instance, **stop_data)
+
+        # Actualizar warnings
+        if warnings_data is not None:
+            instance.warnings.set(warnings_data)
 
         # Actualizar otros campos
         for attr, value in validated_data.items():
@@ -234,3 +267,8 @@ class UpdateUserSerializer(serializers.ModelSerializer):
     class Meta:
         model = CarrierUser
         fields = ['first_name', 'last_name', 'phone', 'DOT_number']
+
+class WarningSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Warning
+        fields = '__all__'
