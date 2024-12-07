@@ -304,15 +304,12 @@ class OfferHistory(models.Model):
     id = models.AutoField(primary_key=True)  # Identificador único para cada oferta
     load = models.ForeignKey(
         'Load', on_delete=models.CASCADE, related_name='offer_history'
-    )  # Relación con el modelo Load
+    )  # Relación con el modelo Load, si se elimina la carga, también se eliminan las ofertas
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,
-        null=True,  # Permitir valores nulos para filas existentes
-        blank=True,  # Hacerlo opcional en los formularios
+        on_delete=models.CASCADE,  # Si el usuario es eliminado, las ofertas asociadas también se eliminan
         related_name='offers'
     )
-
     amount = models.DecimalField(
         max_digits=10, decimal_places=2, validators=[validate_positive_amount]
     )  # Monto de la oferta con validación
@@ -357,14 +354,14 @@ class OfferHistory(models.Model):
 
     def __str__(self):
         """Representación en cadena del modelo."""
-        user_display = self.user.username if self.user else "No user"
-        return f'Offer {self.amount} by {user_display} for Load {self.load.idmmload}'
+        return f'Offer {self.amount} by {self.user.username} for Load {self.load.idmmload}'
 
     class Meta:
         indexes = [
             models.Index(fields=['date']),  # Índice para la fecha
             models.Index(fields=['status']),  # Índice para el estado
         ]
+
 class Job_Type(models.Model):
     idmmjob = models.AutoField(primary_key=True)
     name = models.CharField(max_length=100)

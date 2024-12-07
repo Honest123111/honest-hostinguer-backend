@@ -88,50 +88,80 @@ class LoadStopsView(APIView):
         stop = get_object_or_404(Stop, id=stop_id, load_id=load_id)
         stop.delete()
         return Response({"message": "Stop deleted successfully"}, status=status.HTTP_204_NO_CONTENT)
+    
+    def get(self, request, load_id):
+        """Obtener el historial de ofertas asociadas a un Load específico."""
+        # Verificar si el usuario está autenticado
+        if not request.user or not request.user.is_authenticated:
+            return Response({"error": "Authentication is required to view offers."}, status=401)
+
+        # Obtener el Load relacionado
+        load = get_object_or_404(Load, idmmload=load_id)
+
+        # Obtener las ofertas asociadas al Load
+        offers = OfferHistory.objects.filter(load=load).order_by('-date')
+
+        # Serializar y devolver las ofertas
+        serializer = OfferHistorySerializer(offers, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 class OfferHistoryView(APIView):
     permission_classes = [IsAuthenticated]
 
-    def post(self, request, load_id):
-        """Crear una oferta en el historial asociado a un Load específico."""
-        # Verifica si el usuario está autenticado
-        if not request.user or not request.user.is_authenticated:
-            return Response({"error": "Authentication is required to create an offer."}, status=401)
+    def get(self, request, load_id):
+        """
+        Listar el historial de ofertas de una carga específica.
+        """
+        load = get_object_or_404(Load, idmmload=load_id)
+        offers = OfferHistory.objects.filter(load=load)
+        serializer = OfferHistorySerializer(offers, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
+    def post(self, request, load_id):
+        """
+        Crear una nueva oferta asociada a una carga específica.
+        """
         load = get_object_or_404(Load, idmmload=load_id)
 
-        amount = request.data.get("amount")
-        offer_status = request.data.get("status", "pending")
-        terms_change = request.data.get("terms_change", False)
-        proposed_pickup_date = request.data.get("proposed_pickup_date")
-        proposed_pickup_time = request.data.get("proposed_pickup_time")
-        proposed_delivery_date = request.data.get("proposed_delivery_date")
-        proposed_delivery_time = request.data.get("proposed_delivery_time")
+        # Validar los datos enviados
+        serializer = OfferHistorySerializer(data=request.data)
+        if serializer.is_valid():
+            # Asociar la oferta con el usuario autenticado y la carga
+            serializer.save(user=request.user, load=load)
 
-        if not amount:
-            return Response({"error": "Offer amount is required"}, status=status.HTTP_400_BAD_REQUEST)
+            # Actualizar campos en el modelo Load
+            load.number_of_offers += 1
+            load.is_offerted = True
+            load.save()
 
-        # Crear la oferta asociando el usuario logueado
-        offer = OfferHistory.objects.create(
-            load=load,
-            user=request.user,  # Asociar el usuario autenticado
-            amount=amount,
-            status=offer_status,
-            date=timezone.now(),
-            terms_change=terms_change,
-            proposed_pickup_date=proposed_pickup_date,
-            proposed_pickup_time=proposed_pickup_time,
-            proposed_delivery_date=proposed_delivery_date,
-            proposed_delivery_time=proposed_delivery_time,
-        )
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-        load.number_of_offers += 1
-        load.is_offerted = True
-        load.save()
+    def patch(self, request, offer_id, action):
+        """
+        Aceptar o rechazar una oferta específica.
+        """
+        offer = get_object_or_404(OfferHistory, id=offer_id)
 
-        serializer = OfferHistorySerializer(offer)
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
+        if action == "accept":
+            try:
+                offer.accept_offer()
+                return Response({"message": "Oferta aceptada con éxito."}, status=status.HTTP_200_OK)
+            except Exception as e:
+                return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        elif action == "reject":
+            try:
+                offer.reject_offer()
+                return Response({"message": "Oferta rechazada con éxito."}, status=status.HTTP_200_OK)
+            except Exception as e:
+                return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            return Response(
+                {"error": "Acción no válida. Use 'accept' o 'reject'."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
 class AssignRoleView(APIView):
     """
     API para asignar un rol a un usuario.

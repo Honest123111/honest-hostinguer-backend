@@ -3,7 +3,13 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from myapp import views
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
-from myapp.views import AssignRoleView, LoadStopsView, OfferHistoryView, RegisterView, WarningViewSet
+from myapp.views import (
+    AssignRoleView,
+    LoadStopsView,
+    OfferHistoryView,
+    RegisterView,
+    WarningViewSet,
+)
 
 # Registrar los viewsets en el router
 router = DefaultRouter()
@@ -15,16 +21,25 @@ router.register(r'warnings', WarningViewSet)  # Registra el endpoint para advert
 
 # Definir las rutas adicionales para vistas personalizadas
 urlpatterns = [
+    # Admin
     path('admin/', admin.site.urls),
-    path('api/', include(router.urls)),  # Rutas para los viewsets registrados en el router
-    path('api/loads/<int:load_id>/stops/', LoadStopsView.as_view(), name='load-stops'),  # Ruta para manejar los stops de un load específico
-    path('api/loads/<int:load_id>/stops/<int:stop_id>/', LoadStopsView.as_view(), name='edit-stop'),  # Ruta para editar/eliminar un stop específico
-    path('api/loads/<int:load_id>/offers/', OfferHistoryView.as_view(), name='load-offers'),  # Ruta para manejar el historial de ofertas de un load
-      # Endpoints de autenticación
-    path('token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),  # Login para obtener el token
-    path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'), # Refresh del token
+    
+    # API REST usando el router
+    path('api/', include(router.urls)),
 
-    # Endpoints de gestión de usuarios y roles
-    path('register/', RegisterView.as_view(), name='register'),               # Registro de usuario
-    path('assign-role/', AssignRoleView.as_view(), name='assign_role'),       # Asignar rol a usuario         # Perfil del usuario autenticado
+    # Rutas específicas para operaciones personalizadas
+    path('api/loads/<int:load_id>/stops/', LoadStopsView.as_view(), name='load-stops'),
+    path('api/loads/<int:load_id>/stops/<int:stop_id>/', LoadStopsView.as_view(), name='edit-stop'),
+
+    # Rutas para gestionar ofertas
+    path('api/loads/<int:load_id>/offers/', OfferHistoryView.as_view(), name='offer-history'),
+    path('api/offers/<int:offer_id>/<str:action>/', OfferHistoryView.as_view(), name='offer-action'),
+
+    # Endpoints de autenticación
+    path('token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
+    path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+
+    # Gestión de usuarios y roles
+    path('register/', RegisterView.as_view(), name='register'),
+    path('assign-role/', AssignRoleView.as_view(), name='assign_role'),
 ]

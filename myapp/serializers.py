@@ -175,10 +175,45 @@ class JobTypeSerializer(serializers.ModelSerializer):
 
 
 class OfferHistorySerializer(serializers.ModelSerializer):
+    # Mostrar solo el ID de la carga relacionada
+    load = serializers.PrimaryKeyRelatedField(read_only=True)
+    # Mostrar el nombre del usuario asociado
+    user = serializers.StringRelatedField(read_only=True)
+
     class Meta:
         model = OfferHistory
-        fields = '__all__'
+        fields = [
+            'id',                      # Identificador único
+            'load',                    # ID de la carga asociada
+            'user',                    # Nombre del usuario asociado
+            'amount',                  # Monto de la oferta
+            'status',                  # Estado de la oferta (pending, accepted, rejected)
+            'date',                    # Fecha en la que se hizo la oferta
+            'terms_change',            # Indicador de cambio en términos
+            'proposed_pickup_date',    # Fecha propuesta para la recogida
+            'proposed_pickup_time',    # Hora propuesta para la recogida
+            'proposed_delivery_date',  # Fecha propuesta para la entrega
+            'proposed_delivery_time',  # Hora propuesta para la entrega
+        ]
+        read_only_fields = ['id', 'date', 'status', 'load', 'user']  # Campos de solo lectura
 
+    def validate_amount(self, value):
+        """Valida que el monto sea un número positivo."""
+        if value <= 0:
+            raise serializers.ValidationError("El monto debe ser un número positivo.")
+        return value
+
+    def validate(self, data):
+        """
+        Valida los campos relacionados con las fechas y horas propuestas.
+        """
+        pickup_date = data.get('proposed_pickup_date')
+        delivery_date = data.get('proposed_delivery_date')
+        
+        if pickup_date and delivery_date and pickup_date > delivery_date:
+            raise serializers.ValidationError("La fecha de recogida no puede ser posterior a la fecha de entrega.")
+        
+        return data
 
 class WarningSerializer(serializers.ModelSerializer):
     class Meta:
