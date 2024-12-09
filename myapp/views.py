@@ -194,3 +194,19 @@ class UserAssignedLoadsView(APIView):
         print(f"Cargas asignadas: {assigned_loads}")  # Log para verificar las cargas obtenidas
         serializer = LoadSerializer(assigned_loads, many=True)
         return Response(serializer.data, status=200)
+
+class LoadWarningsView(APIView):
+    def get(self, request, load_id):
+        try:
+            print(f"Buscando carga con ID: {load_id}")
+            load = Load.objects.get(idmmload=load_id)
+
+            print(f"Encontrada carga: {load}")
+            warnings = load.warnings.all()
+            print(f"Warnings asociados: {warnings}")
+
+            serializer = WarningSerializer(warnings, many=True)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        except Load.DoesNotExist:
+            print(f"No se encontró la carga con ID: {load_id}")
+            return Response({"error": "Load not found"}, status=status.HTTP_404_NOT_FOUND)
