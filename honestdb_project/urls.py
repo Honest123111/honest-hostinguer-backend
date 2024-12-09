@@ -9,21 +9,22 @@ from myapp.views import (
     OfferHistoryView,
     RegisterView,
     WarningViewSet,
+    StopViewSet,
 )
 
 # Registrar los viewsets en el router
 router = DefaultRouter()
 router.register(r'customers', views.CustomerViewSet)
 router.register(r'loads', views.LoadViewSet)
-router.register(r'stops', views.StopViewSet)
+router.register(r'stops', StopViewSet)  # Registrar el StopViewSet
 router.register(r'equipment-types', views.EquipmentTypeViewSet)
-router.register(r'warnings', WarningViewSet)  # Registra el endpoint para advertencias
+router.register(r'warnings', WarningViewSet)
 
 # Definir las rutas adicionales para vistas personalizadas
 urlpatterns = [
     # Admin
     path('admin/', admin.site.urls),
-    
+
     # API REST usando el router
     path('api/', include(router.urls)),
 
@@ -31,9 +32,15 @@ urlpatterns = [
     path('api/loads/<int:load_id>/stops/', LoadStopsView.as_view(), name='load-stops'),
     path('api/loads/<int:load_id>/stops/<int:stop_id>/', LoadStopsView.as_view(), name='edit-stop'),
 
+    # Ruta personalizada para obtener las paradas de una carga específica
+    path(
+        'api/stops/load/<int:load_id>/',
+        StopViewSet.as_view({'get': 'stops_by_load'}),
+        name='stops-by-load',
+    ),
+
     # Rutas para gestionar ofertas
     path('api/loads/<int:load_id>/offers/', OfferHistoryView.as_view(), name='offer-history'),
-    path('api/offers/<int:offer_id>/<str:action>/', OfferHistoryView.as_view(), name='offer-action'),
 
     # Endpoints de autenticación
     path('token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),

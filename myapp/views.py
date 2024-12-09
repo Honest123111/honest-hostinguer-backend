@@ -1,5 +1,6 @@
 from email.headerregistry import Group
 from rest_framework import viewsets, status
+from rest_framework.decorators import action
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from .models import Warning
@@ -33,39 +34,52 @@ class LoadViewSet(viewsets.ModelViewSet):
 
 # Stop ViewSet
 class StopViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet para manejar las paradas (stops).
+    """
     queryset = Stop.objects.all()
     serializer_class = StopSerializer
 
+    # Endpoint personalizado para obtener las paradas relacionadas con un load específico
+    @action(detail=False, methods=['get'], url_path='load/(?P<load_id>[^/.]+)')
+    def stops_by_load(self, request, load_id=None):
+        stops = Stop.objects.filter(load__idmmload=load_id)
+        if not stops.exists():
+            return Response(
+                {"detail": "No stops found for the specified load."},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        serializer = self.get_serializer(stops, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
-# EquipmentType ViewSet
+
 class EquipmentTypeViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    ViewSet para manejar los tipos de equipamiento (EquipmentTypes).
+    """
     queryset = EquipmentType.objects.all()
     serializer_class = EquipmentTypeSerializer
 
 
-# LoadStopsView para operaciones específicas en Stops de un Load
 class LoadStopsView(APIView):
+    """
+    APIView para manejar operaciones específicas en Stops asociados a un Load.
+    """
 
     def get(self, request, load_id):
-        """Obtener todos los stops asociados a un Load específico."""
-        try:
-            load = get_object_or_404(Load, idmmload=load_id)
-            stops = load.stops.all()  # Usa related_name para obtener stops
-            serializer = StopSerializer(stops, many=True)
-            return Response(serializer.data, status=status.HTTP_200_OK)
-        except Exception as e:
-            return Response({"error": f"Error retrieving stops: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        """Obtener todas las paradas asociadas a un Load específico."""
+        load = get_object_or_404(Load, idmmload=load_id)
+        stops = load.stops.all()  # Usa related_name definido en el modelo
+        serializer = StopSerializer(stops, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
     def post(self, request, load_id):
-        """Crear nuevos stops asociados a un Load específico."""
-        try:
-            load = get_object_or_404(Load, idmmload=load_id)
-        except Load.DoesNotExist:
-            return Response({"error": "Load not found"}, status=status.HTTP_404_NOT_FOUND)
-
+        """Crear nuevas paradas asociadas a un Load específico."""
+        load = get_object_or_404(Load, idmmload=load_id)
         stop_data = request.data.get("stops", [])
+
         for stop in stop_data:
-            stop["load"] = load.idmmload  # Asociar con el campo correcto
+            stop["load"] = load.id  # Asociar con el campo correcto
 
         serializer = StopSerializer(data=stop_data, many=True)
         if serializer.is_valid():
@@ -75,7 +89,7 @@ class LoadStopsView(APIView):
 
     def put(self, request, load_id, stop_id):
         """Actualizar un stop existente."""
-        stop = get_object_or_404(Stop, id=stop_id, load_id=load_id)
+        stop = get_object_or_404(Stop, id=stop_id, load__idmmload=load_id)
 
         serializer = StopSerializer(stop, data=request.data, partial=True)
         if serializer.is_valid():
@@ -85,27 +99,25 @@ class LoadStopsView(APIView):
 
     def delete(self, request, load_id, stop_id):
         """Eliminar un stop existente."""
-        stop = get_object_or_404(Stop, id=stop_id, load_id=load_id)
+        stop = get_object_or_404(Stop, id=stop_id, load__idmmload=load_id)
         stop.delete()
         return Response({"message": "Stop deleted successfully"}, status=status.HTTP_204_NO_CONTENT)
-    
+
+
+class OfferHistoryView(APIView):
+    """
+    APIView para manejar el historial de ofertas asociadas a un Load.
+    """
+
     def get(self, request, load_id):
         """Obtener el historial de ofertas asociadas a un Load específico."""
-        # Verificar si el usuario está autenticado
         if not request.user or not request.user.is_authenticated:
-            return Response({"error": "Authentication is required to view offers."}, status=401)
+            return Response({"error": "Authentication is required to view offers."}, status=status.HTTP_401_UNAUTHORIZED)
 
-        # Obtener el Load relacionado
         load = get_object_or_404(Load, idmmload=load_id)
-
-        # Obtener las ofertas asociadas al Load
         offers = OfferHistory.objects.filter(load=load).order_by('-date')
-
-        # Serializar y devolver las ofertas
         serializer = OfferHistorySerializer(offers, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
-
-
 class OfferHistoryView(APIView):
     permission_classes = [IsAuthenticated]
 
