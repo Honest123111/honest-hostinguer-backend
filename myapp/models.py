@@ -140,7 +140,6 @@ class Load(models.Model):
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name='assigned_loads',
     )
     tracking_status = models.CharField(
         max_length=20,

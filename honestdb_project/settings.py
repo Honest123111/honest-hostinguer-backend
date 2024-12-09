@@ -43,18 +43,19 @@ INSTALLED_APPS = [
     'rest_framework',  # Django REST Framework
     'rest_framework_simplejwt',
     'myapp',    
-    'django_celery_beat',      # Add the app here
+    'django_celery_beat', 
+    'django_extensions',     # Add the app here
 ]
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
-        'rest_framework.authentication.SessionAuthentication',
-        'rest_framework.authentication.TokenAuthentication',
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
     ],
     'DEFAULT_PERMISSION_CLASSES': [
-        'rest_framework.permissions.AllowAny',  # Permite el acceso a todos
+        'rest_framework.permissions.IsAuthenticated',
     ],
 }
+
 
 
 MIDDLEWARE = [

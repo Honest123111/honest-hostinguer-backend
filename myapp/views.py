@@ -164,3 +164,33 @@ class RegisterView(APIView):
 class WarningViewSet(viewsets.ModelViewSet):
     queryset = Warning.objects.all()
     serializer_class = WarningSerializer
+
+class ReservedLoadsView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        """Obtener las cargas reservadas."""
+        reserved_loads = Load.objects.filter(is_reserved=True)
+        serializer = LoadSerializer(reserved_loads, many=True)
+        return Response(serializer.data, status=200)
+
+class OffertedLoadsView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        """Obtener las cargas que son ofertadas."""
+        offerted_loads = Load.objects.filter(is_offerted=True)
+        serializer = LoadSerializer(offerted_loads, many=True)
+        return Response(serializer.data, status=200)
+
+class UserAssignedLoadsView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        """Obtiene las cargas asignadas al usuario autenticado."""
+        user = request.user
+        print(f"Usuario autenticado: {user}")  # Log para verificar el usuario
+        assigned_loads = Load.objects.filter(assigned_user=user)
+        print(f"Cargas asignadas: {assigned_loads}")  # Log para verificar las cargas obtenidas
+        serializer = LoadSerializer(assigned_loads, many=True)
+        return Response(serializer.data, status=200)
