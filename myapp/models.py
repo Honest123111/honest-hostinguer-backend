@@ -4,6 +4,8 @@ from django.contrib.auth.models import AbstractUser, Permission
 import uuid
 from django.conf import settings
 from django.utils.timezone import now
+from django.conf import settings
+from django.core.exceptions import ValidationError
 
 
 class Role(models.Model):
@@ -293,26 +295,35 @@ OFFER_STATUS_CHOICES = [
 ]
 
 # Función de validación para asegurar que el monto de la oferta sea positivo
+
+# Función de validación para asegurar que el monto de la oferta sea positivo
 def validate_positive_amount(value):
     if value <= 0:
         raise ValidationError(f'{value} is not a valid amount. The amount must be positive.')
 
-from django.conf import settings
-from django.core.exceptions import ValidationError
-
 class OfferHistory(models.Model):
     id = models.AutoField(primary_key=True)  # Identificador único para cada oferta
+
+    # Relación con el modelo Load
     load = models.ForeignKey(
-        'Load', on_delete=models.CASCADE, related_name='offer_history'
-    )  # Relación con el modelo Load, si se elimina la carga, también se eliminan las ofertas
+        'Load',
+        on_delete=models.CASCADE,
+        related_name='offer_history'
+    )  # Si se elimina la carga, también se eliminan las ofertas
+
+    # Relación con el modelo de usuario
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,  # Si el usuario es eliminado, las ofertas asociadas también se eliminan
         related_name='offers'
     )
+
+    # Campos específicos de la oferta
     amount = models.DecimalField(
-        max_digits=10, decimal_places=2, validators=[validate_positive_amount]
-    )  # Monto de la oferta con validación
+        max_digits=10, 
+        decimal_places=2, 
+        validators=[validate_positive_amount]
+    )  # Monto de la oferta con validación para positivos
     status = models.CharField(
         max_length=50,
         choices=[
@@ -324,16 +335,27 @@ class OfferHistory(models.Model):
     )  # Estado de la oferta
     date = models.DateTimeField(default=timezone.now)  # Fecha y hora de la oferta
     terms_change = models.BooleanField(default=False)  # Indicador de cambio en los términos
+
+    # Fechas y horas propuestas para la operación
     proposed_pickup_date = models.DateField(null=True, blank=True)  # Fecha propuesta para recogida
     proposed_pickup_time = models.TimeField(null=True, blank=True)  # Hora propuesta para recogida
     proposed_delivery_date = models.DateField(null=True, blank=True)  # Fecha propuesta para entrega
     proposed_delivery_time = models.TimeField(null=True, blank=True)  # Hora propuesta para entrega
 
+    # Métodos del modelo
     def accept_offer(self):
         """Aceptar la oferta y asignar la carga al usuario."""
         if self.status != 'pending':
             raise ValidationError('Only pending offers can be accepted.')
-        if self.load.is_reserved:
+
+        # Asegurarse de que el monto de la oferta no sea inferior a los anteriores
+        previous_accepted_offers = self.load.offer_history.filter(status='accepted')
+        if previous_accepted_offers.exists() and self.amount < previous_accepted_offers.latest('date').amount:
+            raise ValidationError('Offer amount cannot be lower than previously accepted offers.')
+
+        # Reconsultar la carga para asegurar que no ha sido reservada en otro proceso
+        load = self.load
+        if load.is_reserved:
             raise ValidationError('This load is already reserved.')
 
         # Cambiar el estado de la oferta
@@ -341,26 +363,47 @@ class OfferHistory(models.Model):
         self.save()
 
         # Asignar la carga al usuario
-        self.load.is_reserved = True
-        self.load.assigned_user = self.user
-        self.load.save()
+        load.is_reserved = True
+        load.assigned_user = self.user
+        load.save()
 
     def reject_offer(self):
         """Rechazar la oferta."""
         if self.status != 'pending':
             raise ValidationError('Only pending offers can be rejected.')
+
         self.status = 'rejected'
         self.save()
 
+        # Opción adicional: liberar la carga si es necesario
+        # self.load.is_reserved = False
+        # self.load.assigned_user = None
+        # self.load.save()
+
+    def save(self, *args, **kwargs):
+        """Sobrescribir el método save para detectar cambios en los términos de la oferta."""
+        if self.pk:
+            # Comparar si los términos han cambiado
+            original = OfferHistory.objects.get(pk=self.pk)
+            if (self.amount != original.amount or 
+                self.proposed_pickup_date != original.proposed_pickup_date or
+                self.proposed_delivery_date != original.proposed_delivery_date):
+                self.terms_change = True
+        super().save(*args, **kwargs)
+
     def __str__(self):
         """Representación en cadena del modelo."""
-        return f'Offer {self.amount} by {self.user.username} for Load {self.load.idmmload}'
+        return f'Offer {self.amount} by {self.user.username} for Load {self.load.idmmload} on {self.date}'
 
+    # Configuraciones meta del modelo
     class Meta:
         indexes = [
             models.Index(fields=['date']),  # Índice para la fecha
             models.Index(fields=['status']),  # Índice para el estado
         ]
+        ordering = ['-date']  # Ordenar por fecha descendente
+        verbose_name = 'Offer History'
+        verbose_name_plural = 'Offer Histories'
 
 class Job_Type(models.Model):
     idmmjob = models.AutoField(primary_key=True)

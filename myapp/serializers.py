@@ -175,45 +175,64 @@ class JobTypeSerializer(serializers.ModelSerializer):
 
 
 class OfferHistorySerializer(serializers.ModelSerializer):
-    # Mostrar solo el ID de la carga relacionada
-    load = serializers.PrimaryKeyRelatedField(read_only=True)
-    # Mostrar el nombre del usuario asociado
-    user = serializers.StringRelatedField(read_only=True)
+
+    user = serializers.StringRelatedField()  # Esto devuelve el `__str__` del usuario (normalmente, el `username`)
+
+    # Añadimos la validación personalizada para el monto
+    def validate_amount(self, value):
+        if value <= 0:
+            raise serializers.ValidationError(f'{value} is not a valid amount. The amount must be positive.')
+        return value
+
+    # Validación adicional para evitar ofertas de monto inferior a las anteriores
+    def validate(self, data):
+        load = data.get('load')
+        amount = data.get('amount')
+
+        # Verifica que el monto de la nueva oferta no sea inferior al de ofertas previamente aceptadas
+        previous_accepted_offers = load.offer_history.filter(status='accepted')
+        if previous_accepted_offers.exists() and amount < previous_accepted_offers.latest('date').amount:
+            raise serializers.ValidationError('Offer amount cannot be lower than previously accepted offers.')
+        
+        return data
 
     class Meta:
         model = OfferHistory
         fields = [
-            'id',                      # Identificador único
-            'load',                    # ID de la carga asociada
-            'user',                    # Nombre del usuario asociado
-            'amount',                  # Monto de la oferta
-            'status',                  # Estado de la oferta (pending, accepted, rejected)
-            'date',                    # Fecha en la que se hizo la oferta
-            'terms_change',            # Indicador de cambio en términos
-            'proposed_pickup_date',    # Fecha propuesta para la recogida
-            'proposed_pickup_time',    # Hora propuesta para la recogida
-            'proposed_delivery_date',  # Fecha propuesta para la entrega
-            'proposed_delivery_time',  # Hora propuesta para la entrega
+            'id', 'load', 'user', 'amount', 'status', 'date', 'terms_change',
+            'proposed_pickup_date', 'proposed_pickup_time', 'proposed_delivery_date', 'proposed_delivery_time'
         ]
-        read_only_fields = ['id', 'date', 'status', 'load', 'user']  # Campos de solo lectura
+        read_only_fields = ['id', 'status', 'date', 'terms_change']
 
-    def validate_amount(self, value):
-        """Valida que el monto sea un número positivo."""
-        if value <= 0:
-            raise serializers.ValidationError("El monto debe ser un número positivo.")
-        return value
 
-    def validate(self, data):
+    def get_user(self, obj):
+        return obj.user.username  # Devuelve el username directamente
+
+    def create(self, validated_data):
         """
-        Valida los campos relacionados con las fechas y horas propuestas.
+        Sobrescribimos el método create para manejar la lógica adicional si es necesario,
+        como la creación de una oferta que debe ser validada antes.
         """
-        pickup_date = data.get('proposed_pickup_date')
-        delivery_date = data.get('proposed_delivery_date')
-        
-        if pickup_date and delivery_date and pickup_date > delivery_date:
-            raise serializers.ValidationError("La fecha de recogida no puede ser posterior a la fecha de entrega.")
-        
-        return data
+        # Podemos implementar lógica adicional aquí si es necesario
+        return super().create(validated_data)
+
+    def update(self, instance, validated_data):
+        """
+        Sobrescribimos el método update para manejar cambios en los términos de la oferta.
+        """
+        # Revisar si la oferta tiene un cambio en los términos
+        instance.amount = validated_data.get('amount', instance.amount)
+        instance.proposed_pickup_date = validated_data.get('proposed_pickup_date', instance.proposed_pickup_date)
+        instance.proposed_pickup_time = validated_data.get('proposed_pickup_time', instance.proposed_pickup_time)
+        instance.proposed_delivery_date = validated_data.get('proposed_delivery_date', instance.proposed_delivery_date)
+        instance.proposed_delivery_time = validated_data.get('proposed_delivery_time', instance.proposed_delivery_time)
+
+        # Marcar si hubo un cambio en los términos
+        instance.terms_change = True
+
+        # Llamamos al método save para guardar los cambios
+        instance.save()
+        return instance
 
 class WarningSerializer(serializers.ModelSerializer):
     class Meta:

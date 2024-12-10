@@ -2,6 +2,7 @@ from email.headerregistry import Group
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.views import APIView
+from django.db.models import Avg, Sum, Count
 from rest_framework.response import Response
 from .models import Warning
 from .models import Customer, Load, Stop, EquipmentType, OfferHistory
@@ -15,6 +16,7 @@ from .serializers import (
     OfferHistorySerializer,
 )
 from django.utils import timezone
+from django.db import models
 from django.shortcuts import get_object_or_404
 from .serializers import WarningSerializer
 from rest_framework.permissions import IsAuthenticated
@@ -105,28 +107,24 @@ class LoadStopsView(APIView):
 
 
 class OfferHistoryView(APIView):
-    """
-    APIView para manejar el historial de ofertas asociadas a un Load.
-    """
-
-    def get(self, request, load_id):
-        """Obtener el historial de ofertas asociadas a un Load específico."""
-        if not request.user or not request.user.is_authenticated:
-            return Response({"error": "Authentication is required to view offers."}, status=status.HTTP_401_UNAUTHORIZED)
-
-        load = get_object_or_404(Load, idmmload=load_id)
-        offers = OfferHistory.objects.filter(load=load).order_by('-date')
-        serializer = OfferHistorySerializer(offers, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
-class OfferHistoryView(APIView):
     permission_classes = [IsAuthenticated]
 
-    def get(self, request, load_id):
+    def get(self, request, load_id=None):
         """
-        Listar el historial de ofertas de una carga específica.
+        Listar todas las ofertas o las ofertas de un `Load` específico.
         """
-        load = get_object_or_404(Load, idmmload=load_id)
-        offers = OfferHistory.objects.filter(load=load)
+        if load_id:
+            # Filtrar ofertas por `load_id`
+            offers = OfferHistory.objects.filter(load_id=load_id)
+            if not offers.exists():
+                return Response(
+                    {"detail": f"No se encontraron ofertas para la carga con ID {load_id}."},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+        else:
+            # Devolver todas las ofertas si no se especifica `load_id`
+            offers = OfferHistory.objects.all()
+
         serializer = OfferHistorySerializer(offers, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -136,13 +134,19 @@ class OfferHistoryView(APIView):
         """
         load = get_object_or_404(Load, idmmload=load_id)
 
-        # Validar los datos enviados
+        # Validar si el load tiene alguna oferta previa
+        if load.is_offerted:
+            return Response(
+                {"detail": f"La carga {load_id} ya tiene ofertas registradas."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         serializer = OfferHistorySerializer(data=request.data)
         if serializer.is_valid():
             # Asociar la oferta con el usuario autenticado y la carga
             serializer.save(user=request.user, load=load)
 
-            # Actualizar campos en el modelo Load
+            # Actualizar los campos del modelo Load
             load.number_of_offers += 1
             load.is_offerted = True
             load.save()
@@ -151,29 +155,62 @@ class OfferHistoryView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def patch(self, request, offer_id, action):
-        """
-        Aceptar o rechazar una oferta específica.
-        """
         offer = get_object_or_404(OfferHistory, id=offer_id)
-
+        
         if action == "accept":
             try:
                 offer.accept_offer()
                 return Response({"message": "Oferta aceptada con éxito."}, status=status.HTTP_200_OK)
             except Exception as e:
                 return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        
         elif action == "reject":
             try:
                 offer.reject_offer()
                 return Response({"message": "Oferta rechazada con éxito."}, status=status.HTTP_200_OK)
             except Exception as e:
                 return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        
         else:
+            return Response({"error": "Acción no válida."}, status=status.HTTP_400_BAD_REQUEST)
+
+    def put(self, request, offer_id):
+        """
+        Editar una oferta específica.
+        """
+        offer = get_object_or_404(OfferHistory, id=offer_id)
+
+        # Validar si la oferta ya ha sido aceptada o rechazada
+        if offer.status in ['accepted', 'rejected']:
             return Response(
-                {"error": "Acción no válida. Use 'accept' o 'reject'."},
-                status=status.HTTP_400_BAD_REQUEST,
+                {"detail": "No se puede editar una oferta ya aceptada o rechazada."},
+                status=status.HTTP_400_BAD_REQUEST
             )
 
+        # Validar y actualizar la oferta
+        serializer = OfferHistorySerializer(offer, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def delete(self, request, offer_id):
+        """
+        Eliminar una oferta específica.
+        """
+        offer = get_object_or_404(OfferHistory, id=offer_id)
+
+        # Reducir el contador de ofertas en la carga asociada
+        load = offer.load
+        load.number_of_offers -= 1
+        if load.number_of_offers == 0:
+            load.is_offerted = False
+        load.save()
+
+        # Eliminar la oferta
+        offer.delete()
+        return Response({"message": "Oferta eliminada con éxito."}, status=status.HTTP_200_OK)
+    
 class AssignRoleView(APIView):
     """
     API para asignar un rol a un usuario.
@@ -200,3 +237,38 @@ class RegisterView(APIView):
 class WarningViewSet(viewsets.ModelViewSet):
     queryset = Warning.objects.all()
     serializer_class = WarningSerializer
+
+class UserLoadStatistics(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        # Filtrar cargas asignadas al usuario autenticado
+        assigned_loads = Load.objects.filter(assigned_user=user)
+
+        # Estadísticas generales
+        total_loads = assigned_loads.count()
+        loads_by_status = assigned_loads.values('status').annotate(count=Count('status'))
+        equipment_types = assigned_loads.values('equipment_type').annotate(count=Count('equipment_type'))
+
+        # Estadísticas adicionales
+        loads_by_priority = assigned_loads.values('priority').annotate(count=Count('priority'))
+        loads_by_tracking_status = assigned_loads.values('tracking_status').annotate(count=Count('tracking_status'))
+        total_loaded_miles = assigned_loads.aggregate(total_miles=Sum('loaded_miles'))['total_miles']
+        total_weight = assigned_loads.aggregate(total_weight=Sum('total_weight'))['total_weight']
+        loads_with_warnings = assigned_loads.filter(warnings__isnull=False).distinct().count()
+        average_offers_per_load = assigned_loads.aggregate(avg_offers=Avg('number_of_offers'))['avg_offers']
+
+        # Preparar los datos de respuesta
+        data = {
+            "total_loads": total_loads,
+            "loads_by_status": loads_by_status,
+            "equipment_types": equipment_types,
+            "loads_by_priority": loads_by_priority,
+            "loads_by_tracking_status": loads_by_tracking_status,
+            "total_loaded_miles": total_loaded_miles,
+            "total_weight": total_weight,
+            "loads_with_warnings": loads_with_warnings,
+            "average_offers_per_load": average_offers_per_load,
+        }
+        return Response(data)
