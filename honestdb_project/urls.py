@@ -4,7 +4,7 @@ from rest_framework.routers import DefaultRouter
 from myapp import views
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from myapp.views import AssignRoleView, LoadStopsView, OfferHistoryView, RegisterView, WarningViewSet,ReservedLoadsView
-from myapp.views import UserAssignedLoadsView,LoadWarningsView
+from myapp.views import UserAssignedLoadsView,LoadWarningsView,AddWarningToLoadView,WarningListView
 
 # Registrar los viewsets en el router
 router = DefaultRouter()
@@ -22,6 +22,9 @@ urlpatterns = [
     path('api/loads/reserved/', ReservedLoadsView.as_view(), name='reserved-loads'),
     path('api/loads/assigned-to-user/', UserAssignedLoadsView.as_view(), name='user-assigned-loads'),
     path('api/loads/<int:load_id>/warnings/', LoadWarningsView.as_view(), name='load-warnings'),
+    path('api/loads/<int:load_id>/add-warning/', AddWarningToLoadView.as_view(), name='add-warning-to-load'),
+    path('api/warnings-list/', WarningListView.as_view(), name='warning-list'), 
+
     path('api/', include(router.urls)),  # Rutas para los viewsets registrados en el router
     path('api/loads/<int:load_id>/stops/', LoadStopsView.as_view(), name='load-stops'),  # Ruta para manejar los stops de un load específico
     path('api/loads/<int:load_id>/stops/<int:stop_id>/', LoadStopsView.as_view(), name='edit-stop'),  # Ruta para editar/eliminar un stop específico

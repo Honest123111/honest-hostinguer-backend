@@ -5,7 +5,7 @@ from rest_framework import serializers
 from django.apps import apps
 from .models import (
     CarrierUser, Customer, AddressO, AddressD, Load, Role, Stop,
-    EquipmentType, Job_Type, OfferHistory, Warning
+    EquipmentType, Job_Type, OfferHistory, Warning,WarningList
 )
 
 
@@ -180,6 +180,11 @@ class WarningSerializer(serializers.ModelSerializer):
         model = Warning
         fields = '__all__'
 
+class WarningListSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = WarningList
+        fields = ['id', 'description', 'issue_level', 'is_active', 'created_at', 'updated_at']
+
 
 class RoleSerializer(serializers.ModelSerializer):
     permissions = serializers.StringRelatedField(many=True)
@@ -250,3 +255,4 @@ class UpdateUserSerializer(serializers.ModelSerializer):
     class Meta:
         model = CarrierUser
         fields = ['first_name', 'last_name', 'phone', 'DOT_number']
+
