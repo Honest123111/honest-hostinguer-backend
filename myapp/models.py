@@ -465,3 +465,4 @@ class Warning(models.Model):
         ]
         for warning in warnings:
             Warning.objects.get_or_create(description=warning)
+
