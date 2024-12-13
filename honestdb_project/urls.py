@@ -12,7 +12,12 @@ from myapp.views import (
     CustomerViewSet,
     LoadViewSet,
     EquipmentTypeViewSet,
-    UserLoadStatistics,  # Importar la vista para estadísticas
+    UserLoadStatistics,
+    ReservedLoadsView,
+    UserAssignedLoadsView,
+    LoadWarningsView,
+    AddWarningToLoadView,
+    WarningListView,
 )
 
 # Registrar los viewsets en el router
@@ -43,13 +48,20 @@ urlpatterns = [
     ),
 
     # Rutas para gestionar ofertas
-    path('api/loads/<int:load_id>/offers/', OfferHistoryView.as_view(), name='offer-history'),  # Corregido
+    path('api/loads/<int:load_id>/offers/', OfferHistoryView.as_view(), name='load-offers'),
     path('api/loads/offers/<int:offer_id>/', OfferHistoryView.as_view(), name='offer-detail'),
     path('api/loads/offers/<int:offer_id>/<str:action>/', OfferHistoryView.as_view(), name='offer-action'),
     path('api/loads/offers/', OfferHistoryView.as_view(), name='all-offers'),
 
     # Endpoint para estadísticas de cargas del usuario autenticado
     path('api/user-load-statistics/', UserLoadStatistics.as_view(), name='user-load-statistics'),
+
+    # Endpoints adicionales
+    path('api/loads/reserved/', ReservedLoadsView.as_view(), name='reserved-loads'),
+    path('api/loads/assigned-to-user/', UserAssignedLoadsView.as_view(), name='user-assigned-loads'),
+    path('api/loads/<int:load_id>/warnings/', LoadWarningsView.as_view(), name='load-warnings'),
+    path('api/loads/<int:load_id>/add-warning/', AddWarningToLoadView.as_view(), name='add-warning-to-load'),
+    path('api/warnings-list/', WarningListView.as_view(), name='warning-list'),
 
     # Endpoints de autenticación
     path('token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),

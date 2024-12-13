@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/4.2/ref/settings/
 """
 
 from pathlib import Path
+from datetime import timedelta
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -42,8 +43,9 @@ INSTALLED_APPS = [
     'corsheaders',
     'rest_framework',  # Django REST Framework
     'rest_framework_simplejwt',
-    'myapp',    
-    'django_celery_beat',      # Add the app here
+    'myapp',
+    'django_celery_beat',
+    'django_extensions',  # Herramientas adicionales para desarrollo
 ]
 
 REST_FRAMEWORK = {
@@ -51,14 +53,11 @@ REST_FRAMEWORK = {
         'rest_framework.authentication.SessionAuthentication',
         'rest_framework.authentication.TokenAuthentication',
         'rest_framework_simplejwt.authentication.JWTAuthentication',
-
     ],
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',
-        'rest_framework.permissions.AllowAny',  # Permite el acceso a todos
-    ],
+    ]
 }
-
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -70,7 +69,9 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'corsheaders.middleware.CorsMiddleware',
 ]
-CORS_ALLOW_ALL_ORIGINS = True 
+
+CORS_ALLOW_ALL_ORIGINS = True
+
 ROOT_URLCONF = 'honestdb_project.urls'
 
 TEMPLATES = [
@@ -143,6 +144,8 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+
 # Configuración de Celery
 CELERY_BROKER_URL = 'redis://localhost:6379/0'  # URL de Redis
 CELERY_ACCEPT_CONTENT = ['json']  # Acepta solo JSON
@@ -152,17 +155,15 @@ CELERY_RESULT_BACKEND = 'redis://localhost:6379/0'
 CELERY_BEAT_SCHEDULE = {
     'extract-emails-every-5-seconds': {
         'task': 'myapp.tasks.extract_emails_task',
-        'schedule': 60.0,  # Ejecutar cada 5 segundos
+        'schedule': 60.0,  # Ejecutar cada 60 segundos
     },
 }
 
-from datetime import timedelta
-
+# Configuración de JWT
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(hours=2), 
+    'ACCESS_TOKEN_LIFETIME': timedelta(hours=2),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
     'ROTATE_REFRESH_TOKENS': True,
     'BLACKLIST_AFTER_ROTATION': True,
     'AUTH_HEADER_TYPES': ('Bearer',),
 }
-

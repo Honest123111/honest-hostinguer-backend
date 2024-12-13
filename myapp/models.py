@@ -138,7 +138,6 @@ class Load(models.Model):
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name='assigned_loads',
     )
     tracking_status = models.CharField(
         max_length=20,
@@ -420,49 +419,108 @@ class ProcessedEmail(models.Model):
         return self.message_id
 
 class Warning(models.Model):
-    id = models.AutoField(primary_key=True)
-    description = models.CharField(max_length=255, unique=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
+    warning_type = models.ForeignKey(
+        'WarningList',
+        on_delete=models.CASCADE,
+        related_name='warnings',
+    )
     load = models.ForeignKey(
         'Load',
         on_delete=models.CASCADE,
         related_name='associated_warnings',
-        null=True,  # Permitir nulos
-        blank=True  # Hacer opcional en formularios
+        null=True,
+        blank=True,
+        help_text="Carga asociada a esta advertencia"
     )
     reported_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
         related_name='reported_warnings',
-        null=True,  # Permitir nulos
-        blank=True  # Hacer opcional en formularios
+        null=True,
+        blank=True,
+        help_text="Usuario que reportó la advertencia"
+    )
+    created_at = models.DateTimeField(auto_now_add=True, help_text="Fecha de creación")
+    updated_at = models.DateTimeField(auto_now=True, help_text="Fecha de última actualización")
+
+    def __str__(self):
+        return f"{self.warning_type.description} (Load: {self.load.idmmload if self.load else 'None'})"
+
+    def clean(self):
+        """Validaciones adicionales para el modelo."""
+        if not self.load and not self.reported_by:
+            raise ValidationError("A warning must be associated with either a load or a user.")
+
+    class Meta:
+        verbose_name = "Warning"
+        verbose_name_plural = "Warnings"
+
+
+
+class WarningList(models.Model):
+    ISSUE_LEVEL_CHOICES = [
+        (1, 'Low'),
+        (2, 'Medium'),
+        (3, 'High'),
+    ]
+
+    description = models.CharField(
+        max_length=255,
+        unique=True,
+        help_text="Descripción del tipo de advertencia"
+    )
+    issue_level = models.PositiveSmallIntegerField(
+        choices=ISSUE_LEVEL_CHOICES,
+        default=2,
+        help_text="Nivel del problema"
+    )
+    is_active = models.BooleanField(
+        default=False,
+        help_text="Indica si el tipo de advertencia está activo"
+    )
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        help_text="Fecha de creación del tipo de advertencia"
+    )
+    updated_at = models.DateTimeField(
+        auto_now=True,
+        help_text="Fecha de última actualización del tipo de advertencia"
     )
 
     def __str__(self):
-        return self.description
+        return f"{self.description} (Level: {self.get_issue_level_display()})"
 
     @staticmethod
     def create_default_warnings():
-        """Creates predefined warnings in the database."""
+        """Crea advertencias predeterminadas en la lista maestra."""
         warnings = [
-            "Loaded overweight",
-            "Weather",
-            "Hours of Service",
-            "Scheduling Error",
-            "Yard Congestion",
-            "Driver legal break",
-            "Rail delay",
-            "USPS delay",
-            "Relay app malfunction",
-            "Relay navigation unsafe route",
-            "Pallet quality issue",
-            "Site badging access issue",
-            "Cell service issue",
-            "Driver turned away",
-            "Refueling",
-            "Live lift ramp"
+            ("Loaded overweight", 3),
+            ("Weather", 2),
+            ("Hours of Service", 2),
+            ("Scheduling Error", 1),
+            ("Yard Congestion", 1),
+            ("Driver legal break", 2),
+            ("Rail delay", 1),
+            ("USPS delay", 1),
+            ("Relay app malfunction", 3),
+            ("Relay navigation unsafe route", 3),
+            ("Pallet quality issue", 1),
+            ("Site badging access issue", 1),
+            ("Cell service issue", 2),
+            ("Driver turned away", 3),
+            ("Refueling", 1),
+            ("Live lift ramp", 2),
         ]
-        for warning in warnings:
-            Warning.objects.get_or_create(description=warning)
 
+        for description, level in warnings:
+            obj, created = WarningList.objects.get_or_create(
+                description=description,
+                defaults={'issue_level': level, 'is_active': True}
+            )
+            if not created:
+                obj.is_active = True  # Rehabilitar advertencias existentes si estaban desactivadas
+                obj.save()
+
+    class Meta:
+        verbose_name = "Warning Type"
+        verbose_name_plural = "Warning Types"

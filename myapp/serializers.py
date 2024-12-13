@@ -5,7 +5,7 @@ from rest_framework import serializers
 from django.apps import apps
 from .models import (
     CarrierUser, Customer, AddressO, AddressD, Load, Role, Stop,
-    EquipmentType, Job_Type, OfferHistory, Warning
+    EquipmentType, Job_Type, OfferHistory, Warning,WarningList
 )
 
 
@@ -233,11 +233,20 @@ class OfferHistorySerializer(serializers.ModelSerializer):
         # Llamamos al método save para guardar los cambios
         instance.save()
         return instance
+    class Meta:
+        model = OfferHistory
+        fields = '__all__'
+
 
 class WarningSerializer(serializers.ModelSerializer):
     class Meta:
         model = Warning
         fields = '__all__'
+
+class WarningListSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = WarningList
+        fields = ['id', 'description', 'issue_level', 'is_active', 'created_at', 'updated_at']
 
 
 class RoleSerializer(serializers.ModelSerializer):

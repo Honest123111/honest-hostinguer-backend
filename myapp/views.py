@@ -5,7 +5,7 @@ from rest_framework.views import APIView
 from django.db.models import Avg, Sum, Count
 from rest_framework.response import Response
 from .models import Warning
-from .models import Customer, Load, Stop, EquipmentType, OfferHistory
+from .models import Customer, Load, Stop, EquipmentType, OfferHistory,WarningList
 from .serializers import (
     AssignRoleSerializer,
     CustomerSerializer,
@@ -20,6 +20,9 @@ from django.db import models
 from django.shortcuts import get_object_or_404
 from .serializers import WarningSerializer
 from rest_framework.permissions import IsAuthenticated
+from .serializers import WarningListSerializer
+from .utils import send_email
+
 
 
 # Customer ViewSet
@@ -272,3 +275,106 @@ class UserLoadStatistics(APIView):
             "average_offers_per_load": average_offers_per_load,
         }
         return Response(data)
+
+class ReservedLoadsView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        """Obtener las cargas reservadas."""
+        reserved_loads = Load.objects.filter(is_reserved=True)
+        serializer = LoadSerializer(reserved_loads, many=True)
+        return Response(serializer.data, status=200)
+
+class OffertedLoadsView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        """Obtener las cargas que son ofertadas."""
+        offerted_loads = Load.objects.filter(is_offerted=True)
+        serializer = LoadSerializer(offerted_loads, many=True)
+        return Response(serializer.data, status=200)
+
+class UserAssignedLoadsView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        """Obtiene las cargas asignadas al usuario autenticado."""
+        user = request.user
+        print(f"Usuario autenticado: {user}")  # Log para verificar el usuario
+        assigned_loads = Load.objects.filter(assigned_user=user)
+        print(f"Cargas asignadas: {assigned_loads}")  # Log para verificar las cargas obtenidas
+        serializer = LoadSerializer(assigned_loads, many=True)
+        return Response(serializer.data, status=200)
+
+class LoadWarningsView(APIView):
+    """
+    API para obtener las advertencias asociadas a una carga específica.
+    """
+    def get(self, request, load_id):
+        try:
+            print(f"Buscando carga con ID: {load_id}")
+            load = Load.objects.get(idmmload=load_id)
+
+            print(f"Encontrada carga: {load}")
+            warnings = load.associated_warnings.all()  # Cambiar el nombre del related_name si es diferente
+            print(f"Warnings asociados: {warnings}")
+
+            serializer = WarningSerializer(warnings, many=True)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        except Load.DoesNotExist:
+            print(f"No se encontró la carga con ID: {load_id}")
+            return Response({"error": "Load not found"}, status=status.HTTP_404_NOT_FOUND)
+
+
+class AddWarningToLoadView(APIView):
+    """
+    API para agregar una advertencia a una carga específica.
+    """
+    def post(self, request, load_id):
+        warning_list_id = request.data.get('warning_list_id')
+        reported_by = request.user  # Suponiendo que el usuario autenticado reporta la advertencia
+
+        if not warning_list_id:
+            return Response({"error": "Warning List ID is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            load = Load.objects.get(idmmload=load_id)
+            warning_list_item = WarningList.objects.get(id=warning_list_id)
+        except Load.DoesNotExist:
+            return Response({"error": "Load not found"}, status=status.HTTP_404_NOT_FOUND)
+        except WarningList.DoesNotExist:
+            return Response({"error": "Warning type not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        # Crear una nueva advertencia asociada al Load y al tipo de advertencia
+        warning = Warning.objects.create(
+            warning_type=warning_list_item,
+            load=load,
+            reported_by=reported_by
+        )
+
+        # Enviar correo al crear el warning
+        try:
+            subject = f"New Warning Created for Load ID {load.idmmload}"
+            body = (
+                f"A new warning has been created.\n\n"
+                f"Details:\n"
+                f"Load ID: {load.idmmload}\n"
+                f"Warning Type: {warning_list_item.description}\n"
+                f"Reported By: {reported_by.username}\n\n"
+                f"Thank you,\nHonest Transportation INC"
+            )
+            recipient = "danielcampu28@gmail.com"  # Cambia al correo del destinatario
+            send_email(subject, body, recipient)
+        except Exception as e:
+            print(f"Error sending email: {e}")
+
+        return Response({"message": "Warning added successfully"}, status=status.HTTP_201_CREATED)
+
+class WarningListView(APIView):
+    """
+    API para obtener la lista de todas las advertencias disponibles.
+    """
+    def get(self, request):
+        warning_list = WarningList.objects.all()
+        serializer = WarningListSerializer(warning_list, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
