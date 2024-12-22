@@ -298,13 +298,17 @@ class UserAssignedLoadsView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        """Obtiene las cargas asignadas al usuario autenticado."""
         user = request.user
-        print(f"Usuario autenticado: {user}")  # Log para verificar el usuario
+        if not user.is_authenticated:
+            return Response({"error": "User not authenticated"}, status=401)
+
         assigned_loads = Load.objects.filter(assigned_user=user)
-        print(f"Cargas asignadas: {assigned_loads}")  # Log para verificar las cargas obtenidas
+        if not assigned_loads.exists():
+            return Response({"message": "No assigned loads found for this user."}, status=404)
+
         serializer = LoadSerializer(assigned_loads, many=True)
         return Response(serializer.data, status=200)
+
 
 class LoadWarningsView(APIView):
     """
