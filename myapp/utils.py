@@ -85,6 +85,25 @@ def get_coordinates(address, zip_code=None, state=None, retries=3, delay=5):
         print(f"Error getting coordinates with Google Maps for {query}: {e}")
         return None
 
+# Function to send emails
+def send_email(subject, body, recipient):
+    try:
+        msg = MIMEMultipart()
+        msg["From"] = EMAIL_USER
+        msg["To"] = recipient
+        msg["Subject"] = subject
+        msg.attach(MIMEText(body, "plain"))
+
+        server = smtplib.SMTP(SMTP_SERVER, SMTP_PORT)
+        server.starttls()
+        server.login(EMAIL_USER, EMAIL_PASSWORD)
+        server.sendmail(EMAIL_USER, recipient, msg.as_string())
+        server.quit()
+
+        print(f"Email sent to {recipient}")
+    except Exception as e:
+        print(f"Error sending email: {e}")
+
 # Function to fetch emails and process loads
 def fetch_and_create_load():
     try:
@@ -272,3 +291,129 @@ def create_load_from_data(load_data):
         send_email(subject, body, recipient="danielcampu28@gmail.com")  # Replace with desired recipient
     except Exception as e:
         print(f"Error creating Load: {e}")
+
+#############################################
+# NUEVAS FUNCIONES PARA PROCESAR SPOT LOADS #
+#############################################
+
+def fetch_and_create_spot_load():
+    try:
+        print("Starting Spot Load email extraction...")
+        mail = imaplib.IMAP4_SSL(IMAP_SERVER)
+        mail.login(EMAIL_USER, EMAIL_PASSWORD)
+        mail.select("inbox")
+
+        # Filtra correos que en el asunto contengan la frase "Amazon Relay Spot Load Capacity Request"
+        # en los últimos 2 días (ajustar la frase exacta según las necesidades)
+        two_days_ago = datetime.now() - timedelta(days=2)
+        two_days_ago_str = two_days_ago.strftime("%d-%b-%Y")
+        search_criteria = f'(SUBJECT "Amazon Relay Spot Load Capacity Request" SINCE "{two_days_ago_str}")'
+        status, messages = mail.search(None, search_criteria)
+
+        for num in messages[0].split():
+            status, msg_data = mail.fetch(num, "(RFC822)")
+            for response_part in msg_data:
+                if isinstance(response_part, tuple):
+                    msg = email.message_from_bytes(response_part[1])
+                    msg_id = msg["Message-ID"]
+
+                    if ProcessedEmail.objects.filter(message_id=msg_id).exists():
+                        print(f"Email with ID {msg_id} already processed.")
+                        continue
+
+                    # Decodifica el cuerpo del email
+                    body = ""
+                    if msg.is_multipart():
+                        for part in msg.walk():
+                            if part.get_content_type() == "text/plain":
+                                body = part.get_payload(decode=True).decode('utf-8', 'ignore')
+                                break
+                    else:
+                        body = msg.get_payload(decode=True).decode('utf-8', 'ignore')
+
+                    # Parsear el email específico para Spot Load
+                    load_data = parse_spot_load_email_body(body)
+                    if load_data:
+                        create_load_from_data(load_data)
+
+                    # Marca el correo como procesado
+                    ProcessedEmail.objects.create(message_id=msg_id)
+
+        mail.logout()
+        print("Spot Load email extraction completed successfully.")
+    except Exception as e:
+        print(f"Error in fetch_and_create_spot_load: {e}")
+
+
+def parse_spot_load_email_body(body):
+    """
+    Esta función debe extraer la información relevante del correo con formato Spot Load.
+    Ajustar la lógica de parseo según el formato real del correo Spot Load.
+    """
+    try:
+        lines = [line.strip() for line in body.splitlines() if line.strip()]
+        print("Extracted lines from Spot Load email:")
+        for line in lines:
+            print(line)
+
+        lane_line = next((l for l in lines if l.startswith("Lane:")), None)
+        equipment_line = next((l for l in lines if l.startswith("Equipment Required:")), None)
+        rate_line = next((l for l in lines if l.startswith("Rate:")), None)
+        pickup_time_line = next((l for l in lines if l.startswith("Pick Up Time:")), None)
+        origin_address_line = next((l for l in lines if "6400 VALLEY VIEW ST" in l), None)
+
+        if not (lane_line and equipment_line and rate_line and pickup_time_line and origin_address_line):
+            print("Error: Not all required data lines are present in the email.")
+            return None
+
+        # Datos de ejemplo extraídos del contenido
+        origin_address = "6400 VALLEY VIEW ST, BUENA PARK, CA 90620"
+        origin_zip = "90620"
+        origin_state = "CA"
+        destiny_address = "Jurupa Valley, CA"
+        destiny_zip = ""
+        destiny_state = "CA"
+
+        # Equipo
+        equipment_type = equipment_line.split(":", 1)[1].strip()
+
+        # Tarifa
+        import re
+        rate_info = rate_line.split(":", 1)[1].strip()
+        match = re.search(r"(\d+(\.\d+)?)", rate_info)
+        offer = float(match.group(1)) if match else 0.0
+
+        # Millas
+        miles_line = next((l for l in lines if l.startswith("Miles:")), None)
+        if miles_line:
+            miles_str = miles_line.split(":", 1)[1].strip().replace(" mi", "")
+            loaded_miles = float(miles_str)
+        else:
+            loaded_miles = 0
+
+        # Valores por defecto al no ser provistos en el correo
+        total_weight = 0
+        commodity = "General Freight"
+        customer_id = 1
+
+        stops_data = []
+
+        data = {
+            "origin_zip": origin_zip,
+            "origin_address": origin_address,
+            "origin_state": origin_state,
+            "destiny_zip": destiny_zip,
+            "destiny_address": destiny_address,
+            "destiny_state": destiny_state,
+            "customer_id": customer_id,
+            "equipment_type": equipment_type,
+            "loaded_miles": int(loaded_miles),
+            "total_weight": total_weight,
+            "commodity": commodity,
+            "offer": offer,
+            "stops": stops_data,
+        }
+        return data
+    except Exception as e:
+        print(f"Error parsing spot load email: {e}")
+        return None
