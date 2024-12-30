@@ -2,6 +2,7 @@ from email.headerregistry import Group
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.views import APIView
+from rest_framework.permissions import AllowAny
 from django.db.models import Avg, Sum, Count
 from rest_framework.response import Response
 from .models import Warning
@@ -64,6 +65,8 @@ class EquipmentTypeViewSet(viewsets.ReadOnlyModelViewSet):
     """
     queryset = EquipmentType.objects.all()
     serializer_class = EquipmentTypeSerializer
+    permission_classes = [AllowAny]  # Permitir acceso sin restricciones
+
 
 
 class LoadStopsView(APIView):
