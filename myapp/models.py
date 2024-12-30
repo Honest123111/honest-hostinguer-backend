@@ -294,8 +294,6 @@ OFFER_STATUS_CHOICES = [
 ]
 
 # Función de validación para asegurar que el monto de la oferta sea positivo
-
-# Función de validación para asegurar que el monto de la oferta sea positivo
 def validate_positive_amount(value):
     if value <= 0:
         raise ValidationError(f'{value} is not a valid amount. The amount must be positive.')
