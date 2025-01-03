@@ -11,7 +11,7 @@ from myapp.views import (
     StopViewSet,
     CustomerViewSet,
     LoadViewSet,
-    EquipmentTypeViewSet,
+    EquipmentTypeView,
     UserLoadStatistics,
     ReservedLoadsView,
     UserAssignedLoadsView,
@@ -25,7 +25,6 @@ router = DefaultRouter()
 router.register(r'customers', CustomerViewSet, basename='customers')
 router.register(r'loads', LoadViewSet, basename='loads')
 router.register(r'stops', StopViewSet, basename='stops')
-router.register(r'equipment-types', EquipmentTypeViewSet, basename='equipment-types')
 router.register(r'warnings', WarningViewSet, basename='warnings')
 
 # Definir las rutas adicionales para vistas personalizadas
@@ -35,6 +34,10 @@ urlpatterns = [
 
     # API REST usando el router
     path('api/', include(router.urls)),
+
+    # Rutas para EquipmentTypeView
+    path('api/equipment-types/', EquipmentTypeView.as_view(), name='equipment-types-list-create'),  # GET y POST
+    path('api/equipment-types/<int:pk>/', EquipmentTypeView.as_view(), name='equipment-types-detail'),  # PUT y DELETE
 
     # Rutas específicas para operaciones personalizadas
     path('api/loads/<int:load_id>/stops/', LoadStopsView.as_view(), name='load-stops'),

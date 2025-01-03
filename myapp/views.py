@@ -59,15 +59,43 @@ class StopViewSet(viewsets.ModelViewSet):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
-class EquipmentTypeViewSet(viewsets.ReadOnlyModelViewSet):
-    """
-    ViewSet para manejar los tipos de equipamiento (EquipmentTypes).
-    """
-    queryset = EquipmentType.objects.all()
-    serializer_class = EquipmentTypeSerializer
-    permission_classes = [AllowAny]  # Permitir acceso sin restricciones
+class EquipmentTypeView(APIView):
+    # Obtener todos los tipos de equipo (GET)
+    def get(self, request):
+        equipment_types = EquipmentType.objects.all()
+        serializer = EquipmentTypeSerializer(equipment_types, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
+    # Crear un nuevo tipo de equipo (POST)
+    def post(self, request):
+        serializer = EquipmentTypeSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+    # Actualizar un tipo de equipo existente (PUT)
+    def put(self, request, pk):
+        try:
+            equipment_type = EquipmentType.objects.get(pk=pk)
+        except EquipmentType.DoesNotExist:
+            return Response({'error': 'Tipo de equipo no encontrado'}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = EquipmentTypeSerializer(equipment_type, data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    # Eliminar un tipo de equipo (DELETE)
+    def delete(self, request, pk):
+        try:
+            equipment_type = EquipmentType.objects.get(pk=pk)
+        except EquipmentType.DoesNotExist:
+            return Response({'error': 'Tipo de equipo no encontrado'}, status=status.HTTP_404_NOT_FOUND)
+
+        equipment_type.delete()
+        return Response({'message': 'Tipo de equipo eliminado'}, status=status.HTTP_204_NO_CONTENT)
 
 class LoadStopsView(APIView):
     """
