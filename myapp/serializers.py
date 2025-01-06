@@ -5,7 +5,7 @@ from rest_framework import serializers
 from django.apps import apps
 from .models import (
     CarrierUser, Customer, AddressO, AddressD, Load, Role, Stop,
-    EquipmentType, Job_Type, OfferHistory, Warning,WarningList
+    EquipmentType, Job_Type, OfferHistory, Warning,WarningList,LoadProgress
 )
 
 
@@ -318,3 +318,14 @@ class UpdateUserSerializer(serializers.ModelSerializer):
     class Meta:
         model = CarrierUser
         fields = ['first_name', 'last_name', 'phone', 'DOT_number']
+
+class LoadProgressSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = LoadProgress
+        fields = ['idmmload', 'coordinates', 'step', 'picture', 'pending_for_approval']
+
+    def create(self, validated_data):
+        # Asegurarte de manejar el campo idmmload correctamente
+        load = validated_data.pop('idmmload')
+        progress = LoadProgress.objects.create(idmmload=load, **validated_data)
+        return progress

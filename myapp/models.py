@@ -522,3 +522,15 @@ class WarningList(models.Model):
     class Meta:
         verbose_name = "Warning Type"
         verbose_name_plural = "Warning Types"
+
+
+class LoadProgress(models.Model):
+    idmmload = models.ForeignKey('Load', on_delete=models.CASCADE, related_name='progress')
+    coordinates = models.CharField(max_length=255)
+    step = models.CharField(max_length=255)
+    pending_for_approval = models.BooleanField(default=True)
+    created_date = models.DateTimeField(default=now)
+    picture = models.ImageField(upload_to='progress_pictures/')
+
+    def __str__(self):
+        return f"Progress for Load {self.idmmload.idmmload} - Step: {self.step}"

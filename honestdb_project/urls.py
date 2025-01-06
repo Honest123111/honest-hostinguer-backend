@@ -18,7 +18,9 @@ from myapp.views import (
     LoadWarningsView,
     AddWarningToLoadView,
     WarningListView,
+    RegisterProgressView,
 )
+
 
 # Registrar los viewsets en el router
 router = DefaultRouter()
@@ -65,6 +67,7 @@ urlpatterns = [
     path('api/loads/<int:load_id>/warnings/', LoadWarningsView.as_view(), name='load-warnings'),
     path('api/loads/<int:load_id>/add-warning/', AddWarningToLoadView.as_view(), name='add-warning-to-load'),
     path('api/warnings-list/', WarningListView.as_view(), name='warning-list'),
+    path('api/load-progress/<int:load_id>/', RegisterProgressView.as_view(), name='register-progress'),
 
     # Endpoints de autenticación
     path('token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),

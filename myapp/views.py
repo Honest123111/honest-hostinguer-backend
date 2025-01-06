@@ -23,7 +23,9 @@ from .serializers import WarningSerializer
 from rest_framework.permissions import IsAuthenticated
 from .serializers import WarningListSerializer
 from .utils import send_email
-
+from .models import Load, LoadProgress
+from .serializers import LoadProgressSerializer
+from rest_framework.parsers import MultiPartParser, FormParser
 
 
 # Customer ViewSet
@@ -413,3 +415,28 @@ class WarningListView(APIView):
         warning_list = WarningList.objects.all()
         serializer = WarningListSerializer(warning_list, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+class RegisterProgressView(APIView):
+    permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]  # Permitir archivos y datos multipart
+
+    def post(self, request, load_id):
+        try:
+            # Obtener la carga por ID
+            load = Load.objects.get(idmmload=load_id)
+        except Load.DoesNotExist:
+            return Response({"error": "Load not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        # Combinar los datos y la carga en el request
+        data = request.data.copy()
+        data['idmmload'] = load.idmmload
+
+        # Serializar los datos
+        serializer = LoadProgressSerializer(data=data)
+        if serializer.is_valid():
+            # Guardar los datos validados
+            serializer.save(idmmload=load)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        
+        # Responder con errores si los datos no son válidos
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

@@ -1,7 +1,7 @@
 from django.contrib import admin
 from .models import (
     CarrierUser, Customer, AddressO, AddressD, Load, Role, Stop,
-    EquipmentType, Job_Type, OfferHistory, ProcessedEmail, Warning,WarningList
+    EquipmentType, Job_Type, OfferHistory, ProcessedEmail, Warning,WarningList,LoadProgress
 )
 
 admin.site.register(Customer)
@@ -13,6 +13,7 @@ admin.site.register(Job_Type)
 admin.site.register(OfferHistory)
 admin.site.register(ProcessedEmail)
 admin.site.register(WarningList)
+admin.site.register(LoadProgress)
 
 @admin.register(Role)
 class RoleAdmin(admin.ModelAdmin):
