@@ -361,6 +361,41 @@ class LoadWarningsView(APIView):
         except Load.DoesNotExist:
             print(f"No se encontró la carga con ID: {load_id}")
             return Response({"error": "Load not found"}, status=status.HTTP_404_NOT_FOUND)
+    
+    def delete(self, request, load_id, warning_id):
+        """
+        Eliminar una advertencia específica asociada a una carga y enviar una notificación por correo.
+        """
+        try:
+            # Buscar la carga y la advertencia
+            load = Load.objects.get(idmmload=load_id)
+            warning = load.associated_warnings.get(id=warning_id)
+
+            # Obtener información para el correo
+            warning_description = warning.warning_type.description
+            reported_by = warning.reported_by.username if warning.reported_by else "Unknown"
+
+            # Eliminar la advertencia
+            warning.delete()
+
+            # Enviar correo al eliminar el warning
+            subject = f"Warning Removed for Load ID {load_id}"
+            body = (
+                f"A warning has been removed from Load ID {load_id}.\n\n"
+                f"Details:\n"
+                f"Warning Description: {warning_description}\n"
+                f"Reported By: {reported_by}\n\n"
+                f"Thank you,\nHonest Transportation INC"
+            )
+            recipient = "danielcampu28@gmail.com"  # Se envía el correo al usuario que eliminó la advertencia
+            send_email(subject, body, recipient)
+
+            return Response({"message": "Warning deleted successfully and email sent."}, status=status.HTTP_204_NO_CONTENT)
+
+        except Load.DoesNotExist:
+            return Response({"error": "Load not found"}, status=status.HTTP_404_NOT_FOUND)
+        except Warning.DoesNotExist:
+            return Response({"error": "Warning not found"}, status=status.HTTP_404_NOT_FOUND)
 
 
 class AddWarningToLoadView(APIView):
@@ -432,7 +467,8 @@ class RegisterProgressView(APIView):
         data['idmmload'] = load.idmmload
 
         # Serializar los datos
-        serializer = LoadProgressSerializer(data=data)
+        serializer = LoadProgressSerializer(data=data, context={'request': request})
+
         if serializer.is_valid():
             # Guardar los datos validados
             serializer.save(idmmload=load)
@@ -440,3 +476,11 @@ class RegisterProgressView(APIView):
         
         # Responder con errores si los datos no son válidos
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class LoadProgressListView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, load_id):
+        progresses = LoadProgress.objects.filter(idmmload=load_id)
+        serializer = LoadProgressSerializer(progresses, many=True, context={'request': request})
+        return Response(serializer.data, status=status.HTTP_200_OK)        

@@ -320,12 +320,20 @@ class UpdateUserSerializer(serializers.ModelSerializer):
         fields = ['first_name', 'last_name', 'phone', 'DOT_number']
 
 class LoadProgressSerializer(serializers.ModelSerializer):
+    picture_url = serializers.SerializerMethodField()
+
     class Meta:
         model = LoadProgress
-        fields = ['idmmload', 'coordinates', 'step', 'picture', 'pending_for_approval']
+        fields = ['idmmload', 'coordinates', 'step', 'picture', 'pending_for_approval', 'picture_url']
 
     def create(self, validated_data):
-        # Asegurarte de manejar el campo idmmload correctamente
+        # Manejar el campo idmmload correctamente
         load = validated_data.pop('idmmload')
         progress = LoadProgress.objects.create(idmmload=load, **validated_data)
         return progress
+
+    def get_picture_url(self, obj):
+        request = self.context.get('request')
+        if request:
+            return request.build_absolute_uri(obj.picture.url)
+        return obj.picture.url
