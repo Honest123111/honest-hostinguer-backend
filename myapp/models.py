@@ -28,6 +28,7 @@ class CarrierUser(AbstractUser):
     phone = models.CharField(max_length=15, blank=True, null=True)
     DOT_number = models.CharField(max_length=20, blank=True, null=True)
     license_guid = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+    number_of_trucks = models.PositiveIntegerField(default=0, help_text="Number of trucks owned by the carrier")
 
     # Ajustar related_name para evitar conflictos
     groups = models.ManyToManyField(
@@ -42,7 +43,6 @@ class CarrierUser(AbstractUser):
         blank=True,
         help_text='Specific permissions for this user.',
     )
-
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -212,13 +212,31 @@ class Load(models.Model):
         return False
 
     def clean(self):
-        """Validaciones adicionales para el modelo."""
+        
+        # Validación de peso total
         if self.total_weight <= 0:
             raise ValidationError('Total weight must be greater than zero.')
         if self.total_weight > 50000:  # Ejemplo de peso máximo permitido
             raise ValidationError('Total weight exceeds the maximum allowed limit.')
+
+        # Validación de millas cargadas
         if self.loaded_miles <= 0:
             raise ValidationError('Loaded miles must be greater than zero.')
+
+        # Validación para asegurar que el usuario no tenga más cargas asignadas que camiones
+        if self.assigned_user:
+            # Obtener la cantidad de cargas asignadas en estado pending o in_progress
+            assigned_loads_count = Load.objects.filter(
+                assigned_user=self.assigned_user,
+                status__in=['pending', 'in_progress']
+            ).count()
+
+            # Comparar con la cantidad de camiones que posee el usuario
+            if assigned_loads_count >= self.assigned_user.trucks.count():
+                raise ValidationError(
+                    "The user cannot be assigned more loads than the number of trucks they own."
+                )
+
 
     def add_warning(self, warning):
         """Agrega una advertencia a esta carga."""
@@ -534,3 +552,18 @@ class LoadProgress(models.Model):
 
     def __str__(self):
         return f"Progress for Load {self.idmmload.idmmload} - Step: {self.step}"
+
+class Truck(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='trucks')
+    plate_number = models.CharField(max_length=20, unique=True, help_text="Truck license plate")
+    model = models.CharField(max_length=50, help_text="Truck model")
+    equipment_type = models.ForeignKey(
+        'EquipmentType',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        help_text="Type of equipment the truck is compatible with"
+    )
+
+    def __str__(self):
+        return f"{self.plate_number} - {self.model}"

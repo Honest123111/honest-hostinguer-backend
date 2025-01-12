@@ -6,7 +6,7 @@ from rest_framework.permissions import AllowAny
 from django.db.models import Avg, Sum, Count
 from rest_framework.response import Response
 from .models import Warning
-from .models import Customer, Load, Stop, EquipmentType, OfferHistory,WarningList
+from .models import Customer, Load, Stop, EquipmentType, OfferHistory,WarningList,Truck
 from .serializers import (
     AssignRoleSerializer,
     CustomerSerializer,
@@ -15,6 +15,7 @@ from .serializers import (
     StopSerializer,
     EquipmentTypeSerializer,
     OfferHistorySerializer,
+    TruckSerializer,
 )
 from django.utils import timezone
 from django.db import models
@@ -38,7 +39,42 @@ class CustomerViewSet(viewsets.ModelViewSet):
 class LoadViewSet(viewsets.ModelViewSet):
     queryset = Load.objects.prefetch_related('stops').all()  # Pre-fetch stops para optimizar
     serializer_class = LoadSerializer
+    
+class TruckViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticated]
+    serializer_class = TruckSerializer
 
+    def get_queryset(self):
+        """Permitir que los superusuarios vean todos los camiones."""
+        if self.request.user.is_superuser:
+            return Truck.objects.all()
+        return Truck.objects.filter(user=self.request.user)
+
+    def create(self, request, *args, **kwargs):
+        """Crear un camión para cualquier usuario."""
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+
+    def perform_create(self, serializer):
+        """Crear un camión asociado a un usuario específico."""
+        serializer.save()
+
+    def update(self, request, *args, **kwargs):
+        """Editar un camión solo si no tiene cargas activas."""
+        truck = self.get_object()
+        if Load.objects.filter(equipment=truck.equipment_type, status__in=['pending', 'in_progress']).exists():
+            return Response({"detail": "Cannot edit a truck that has active loads."}, status=status.HTTP_400_BAD_REQUEST)
+        return super().update(request, *args, **kwargs)
+
+    def destroy(self, request, *args, **kwargs):
+        """Eliminar un camión solo si no tiene cargas activas."""
+        truck = self.get_object()
+        if Load.objects.filter(equipment=truck, status__in=['pending', 'in_progress']).exists():
+            return Response({"detail": "Cannot delete a truck that has active loads."}, status=status.HTTP_400_BAD_REQUEST)
+        return super().destroy(request, *args, **kwargs)
 
 # Stop ViewSet
 class StopViewSet(viewsets.ModelViewSet):
@@ -332,13 +368,19 @@ class UserAssignedLoadsView(APIView):
 
     def get(self, request):
         user = request.user
+
+        # Verificar que el usuario esté autenticado
         if not user.is_authenticated:
             return Response({"error": "User not authenticated"}, status=401)
 
+        # Obtener las cargas asignadas al usuario
         assigned_loads = Load.objects.filter(assigned_user=user)
-        if not assigned_loads.exists():
-            return Response({"message": "No assigned loads found for this user."}, status=404)
 
+        # Si no hay cargas asignadas, devolver un 204 No Content
+        if not assigned_loads.exists():
+            return Response({"message": "No assigned loads found for this user."}, status=204)
+
+        # Serializar las cargas y devolverlas
         serializer = LoadSerializer(assigned_loads, many=True)
         return Response(serializer.data, status=200)
 
@@ -361,6 +403,41 @@ class LoadWarningsView(APIView):
         except Load.DoesNotExist:
             print(f"No se encontró la carga con ID: {load_id}")
             return Response({"error": "Load not found"}, status=status.HTTP_404_NOT_FOUND)
+    
+    def delete(self, request, load_id, warning_id):
+        """
+        Eliminar una advertencia específica asociada a una carga y enviar una notificación por correo.
+        """
+        try:
+            # Buscar la carga y la advertencia
+            load = Load.objects.get(idmmload=load_id)
+            warning = load.associated_warnings.get(id=warning_id)
+
+            # Obtener información para el correo
+            warning_description = warning.warning_type.description
+            reported_by = warning.reported_by.username if warning.reported_by else "Unknown"
+
+            # Eliminar la advertencia
+            warning.delete()
+
+            # Enviar correo al eliminar el warning
+            subject = f"Warning Removed for Load ID {load_id}"
+            body = (
+                f"A warning has been removed from Load ID {load_id}.\n\n"
+                f"Details:\n"
+                f"Warning Description: {warning_description}\n"
+                f"Reported By: {reported_by}\n\n"
+                f"Thank you,\nHonest Transportation INC"
+            )
+            recipient = "danielcampu28@gmail.com"  # Se envía el correo al usuario que eliminó la advertencia
+            send_email(subject, body, recipient)
+
+            return Response({"message": "Warning deleted successfully and email sent."}, status=status.HTTP_204_NO_CONTENT)
+
+        except Load.DoesNotExist:
+            return Response({"error": "Load not found"}, status=status.HTTP_404_NOT_FOUND)
+        except Warning.DoesNotExist:
+            return Response({"error": "Warning not found"}, status=status.HTTP_404_NOT_FOUND)
 
 
 class AddWarningToLoadView(APIView):
@@ -432,7 +509,8 @@ class RegisterProgressView(APIView):
         data['idmmload'] = load.idmmload
 
         # Serializar los datos
-        serializer = LoadProgressSerializer(data=data)
+        serializer = LoadProgressSerializer(data=data, context={'request': request})
+
         if serializer.is_valid():
             # Guardar los datos validados
             serializer.save(idmmload=load)
@@ -440,3 +518,40 @@ class RegisterProgressView(APIView):
         
         # Responder con errores si los datos no son válidos
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class LoadProgressListView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, load_id):
+        progresses = LoadProgress.objects.filter(idmmload=load_id)
+        serializer = LoadProgressSerializer(progresses, many=True, context={'request': request})
+        return Response(serializer.data, status=status.HTTP_200_OK)        
+from django.contrib.auth import get_user_model
+User = get_user_model()
+
+
+class UserViewSet(viewsets.ViewSet):
+    """
+    ViewSet para manejar usuarios y sus camiones.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def list(self, request):
+        """Listar todos los usuarios registrados (solo accesible para usuarios autenticados)."""
+        users = User.objects.all().values('id', 'username', 'email')
+        return Response(users, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=['get'], url_path='trucks')
+    def user_trucks(self, request, pk=None):
+        """
+        Obtener los camiones asociados a un usuario específico (solo accesible para usuarios autenticados).
+        """
+        try:
+            user = User.objects.get(pk=pk)
+        except User.DoesNotExist:
+            return Response({"detail": "User not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        trucks = Truck.objects.filter(user=user)
+        serializer = TruckSerializer(trucks, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+

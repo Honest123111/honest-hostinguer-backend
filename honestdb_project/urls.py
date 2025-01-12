@@ -2,6 +2,8 @@ from django.contrib import admin
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
+from django.conf import settings
+from django.conf.urls.static import static
 from myapp.views import (
     AssignRoleView,
     LoadStopsView,
@@ -19,6 +21,9 @@ from myapp.views import (
     AddWarningToLoadView,
     WarningListView,
     RegisterProgressView,
+    LoadProgressListView,
+    TruckViewSet,
+    UserViewSet,
 )
 
 
@@ -28,7 +33,8 @@ router.register(r'customers', CustomerViewSet, basename='customers')
 router.register(r'loads', LoadViewSet, basename='loads')
 router.register(r'stops', StopViewSet, basename='stops')
 router.register(r'warnings', WarningViewSet, basename='warnings')
-
+router.register(r'trucks', TruckViewSet, basename='trucks')
+router.register(r'users', UserViewSet, basename='users')
 # Definir las rutas adicionales para vistas personalizadas
 urlpatterns = [
     # Admin
@@ -63,12 +69,13 @@ urlpatterns = [
 
     # Endpoints adicionales
     path('api/loads/reserved/', ReservedLoadsView.as_view(), name='reserved-loads'),
-    path('api/loads/assigned-to-user/', UserAssignedLoadsView.as_view(), name='user-assigned-loads'),
+    path('api/assigned-loads/', UserAssignedLoadsView.as_view(), name='assigned-loads'),
     path('api/loads/<int:load_id>/warnings/', LoadWarningsView.as_view(), name='load-warnings'),
     path('api/loads/<int:load_id>/add-warning/', AddWarningToLoadView.as_view(), name='add-warning-to-load'),
+    path('api/loads/<int:load_id>/warnings/<int:warning_id>/', LoadWarningsView.as_view(), name='delete-load-warning'),
     path('api/warnings-list/', WarningListView.as_view(), name='warning-list'),
     path('api/load-progress/<int:load_id>/', RegisterProgressView.as_view(), name='register-progress'),
-
+    path('api/load-progress-list/<int:load_id>/', LoadProgressListView.as_view(), name='load-progress-list'),
     # Endpoints de autenticación
     path('token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
@@ -77,3 +84,5 @@ urlpatterns = [
     path('register/', RegisterView.as_view(), name='register'),
     path('assign-role/', AssignRoleView.as_view(), name='assign-role'),
 ]
+
+urlpatterns += static('/progress_pictures/', document_root=settings.BASE_DIR / 'progress_pictures')
