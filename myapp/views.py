@@ -55,6 +55,9 @@ class TruckViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         self.perform_create(serializer)
+        user = serializer.instance.user
+        user.number_of_trucks = user.trucks.count()  
+        user.save()
         headers = self.get_success_headers(serializer.data)
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
@@ -72,6 +75,10 @@ class TruckViewSet(viewsets.ModelViewSet):
     def destroy(self, request, *args, **kwargs):
         """Eliminar un camión solo si no tiene cargas activas."""
         truck = self.get_object()
+        user = truck.user
+        self.perform_destroy(truck)
+        user.number_of_trucks = user.trucks.count()
+        user.save()
         if Load.objects.filter(equipment=truck, status__in=['pending', 'in_progress']).exists():
             return Response({"detail": "Cannot delete a truck that has active loads."}, status=status.HTTP_400_BAD_REQUEST)
         return super().destroy(request, *args, **kwargs)
