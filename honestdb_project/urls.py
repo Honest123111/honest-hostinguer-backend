@@ -22,6 +22,8 @@ from myapp.views import (
     WarningListView,
     RegisterProgressView,
     LoadProgressListView,
+    TruckViewSet,
+    UserViewSet,
 )
 
 
@@ -31,7 +33,8 @@ router.register(r'customers', CustomerViewSet, basename='customers')
 router.register(r'loads', LoadViewSet, basename='loads')
 router.register(r'stops', StopViewSet, basename='stops')
 router.register(r'warnings', WarningViewSet, basename='warnings')
-
+router.register(r'trucks', TruckViewSet, basename='trucks')
+router.register(r'users', UserViewSet, basename='users')
 # Definir las rutas adicionales para vistas personalizadas
 urlpatterns = [
     # Admin
@@ -66,7 +69,7 @@ urlpatterns = [
 
     # Endpoints adicionales
     path('api/loads/reserved/', ReservedLoadsView.as_view(), name='reserved-loads'),
-    path('api/loads/assigned-to-user/', UserAssignedLoadsView.as_view(), name='user-assigned-loads'),
+    path('api/assigned-loads/', UserAssignedLoadsView.as_view(), name='assigned-loads'),
     path('api/loads/<int:load_id>/warnings/', LoadWarningsView.as_view(), name='load-warnings'),
     path('api/loads/<int:load_id>/add-warning/', AddWarningToLoadView.as_view(), name='add-warning-to-load'),
     path('api/loads/<int:load_id>/warnings/<int:warning_id>/', LoadWarningsView.as_view(), name='delete-load-warning'),

@@ -5,7 +5,7 @@ from rest_framework import serializers
 from django.apps import apps
 from .models import (
     CarrierUser, Customer, AddressO, AddressD, Load, Role, Stop,
-    EquipmentType, Job_Type, OfferHistory, Warning,WarningList,LoadProgress
+    EquipmentType, Job_Type, OfferHistory, Warning,WarningList,LoadProgress,Truck
 )
 
 
@@ -156,9 +156,27 @@ class LoadSerializer(serializers.ModelSerializer):
         return instance
 
     def validate(self, data):
-        """Custom validations."""
+        """Validaciones personalizadas."""
+
+        # Validación para asegurar que la fecha de expiración no esté en el pasado
         if data.get('expiration_date') and data['expiration_date'] < timezone.now():
             raise serializers.ValidationError("Expiration date cannot be in the past.")
+
+        # Validación para asegurar que el usuario no tenga más cargas asignadas que camiones
+        assigned_user = data.get('assigned_user')
+        if assigned_user:
+            # Contar las cargas en estado 'pending' o 'in_progress'
+            assigned_loads_count = Load.objects.filter(
+                assigned_user=assigned_user,
+                status__in=['pending', 'in_progress']
+            ).count()
+
+            # Comparar con la cantidad de camiones registrados por el usuario
+            if assigned_loads_count >= assigned_user.trucks.count():
+                raise serializers.ValidationError(
+                    "The user cannot be assigned more loads than the number of trucks they own."
+                )
+
         return data
 
 
@@ -337,3 +355,7 @@ class LoadProgressSerializer(serializers.ModelSerializer):
         if request:
             return request.build_absolute_uri(obj.picture.url)
         return obj.picture.url
+class TruckSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Truck
+        fields = ['id', 'user', 'plate_number', 'model', 'equipment_type']

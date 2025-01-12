@@ -1,7 +1,7 @@
 from django.contrib import admin
 from .models import (
     CarrierUser, Customer, AddressO, AddressD, Load, Role, Stop,
-    EquipmentType, Job_Type, OfferHistory, ProcessedEmail, Warning,WarningList,LoadProgress
+    EquipmentType, Job_Type, OfferHistory, ProcessedEmail, Warning,WarningList,LoadProgress,Truck
 )
 
 admin.site.register(Customer)
@@ -14,6 +14,7 @@ admin.site.register(OfferHistory)
 admin.site.register(ProcessedEmail)
 admin.site.register(WarningList)
 admin.site.register(LoadProgress)
+admin.site.register(Truck)
 
 @admin.register(Role)
 class RoleAdmin(admin.ModelAdmin):
@@ -38,3 +39,4 @@ class WarningAdmin(admin.ModelAdmin):
 class LoadAdmin(admin.ModelAdmin):
     list_display = ('idmmload', 'status', 'priority', 'is_reserved')
     filter_horizontal = ('warnings',)  # Agrega un selector para advertencias
+
