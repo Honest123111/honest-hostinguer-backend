@@ -37,7 +37,7 @@ class CustomerViewSet(viewsets.ModelViewSet):
 
 # Load ViewSet
 class LoadViewSet(viewsets.ModelViewSet):
-    queryset = Load.objects.prefetch_related('stops').all()  # Pre-fetch stops para optimizar
+    queryset = Load.objects.filter(is_closed=False).prefetch_related('stops')  # ✅ Filtrar cargas abiertas y optimizar prefetch
     serializer_class = LoadSerializer
     
 class TruckViewSet(viewsets.ModelViewSet):
@@ -381,7 +381,7 @@ class UserAssignedLoadsView(APIView):
             return Response({"error": "User not authenticated"}, status=401)
 
         # Obtener las cargas asignadas al usuario
-        assigned_loads = Load.objects.filter(assigned_user=user)
+        assigned_loads = Load.objects.filter(assigned_user=user, is_closed=False)
 
         # Si no hay cargas asignadas, devolver un 204 No Content
         if not assigned_loads.exists():
@@ -562,3 +562,53 @@ class UserViewSet(viewsets.ViewSet):
         serializer = TruckSerializer(trucks, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
+class UpdateLoadProgressView(APIView):
+    """
+    API para actualizar el estado de `pending_for_approval` usando idmmload y step.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def patch(self, request, load_id, step):
+        # Decodificar `step` si viene codificado
+        step = step.replace('%20', ' ').replace('%3A', ':')
+
+        # Buscar el progreso usando filter().first()
+        load_progress = LoadProgress.objects.filter(idmmload__idmmload=load_id, step=step).first()
+
+        if not load_progress:
+            return Response({"error": "LoadProgress not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        # Cambiar el estado de pending_for_approval a False
+        load_progress.pending_for_approval = False
+        load_progress.save()
+
+        return Response(
+            {
+                "message": "LoadProgress updated successfully",
+                "pending_for_approval": load_progress.pending_for_approval,
+            },
+            status=status.HTTP_200_OK,
+        )
+
+class CloseLoadView(APIView):
+    """
+    API para cerrar una carga (cambiar `is_closed` a `True`).
+    """
+    permission_classes = [IsAuthenticated]
+
+    def patch(self, request, load_id):
+        try:
+            # Buscar la carga por su ID
+            load = Load.objects.get(idmmload=load_id)
+
+            # Verificar si la carga ya está cerrada
+            if load.is_closed:
+                return Response({"error": "Load is already closed."}, status=status.HTTP_400_BAD_REQUEST)
+
+            # Cambiar el estado a `is_closed = True`
+            load.is_closed = True
+            load.save()
+
+            return Response({"message": "Load closed successfully.", "is_closed": load.is_closed}, status=status.HTTP_200_OK)
+        except Load.DoesNotExist:
+            return Response({"error": "Load not found."}, status=status.HTTP_404_NOT_FOUND)

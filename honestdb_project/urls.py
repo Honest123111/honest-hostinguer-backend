@@ -24,6 +24,8 @@ from myapp.views import (
     LoadProgressListView,
     TruckViewSet,
     UserViewSet,
+    UpdateLoadProgressView,
+    CloseLoadView
 )
 
 
@@ -76,6 +78,10 @@ urlpatterns = [
     path('api/warnings-list/', WarningListView.as_view(), name='warning-list'),
     path('api/load-progress/<int:load_id>/', RegisterProgressView.as_view(), name='register-progress'),
     path('api/load-progress-list/<int:load_id>/', LoadProgressListView.as_view(), name='load-progress-list'),
+    path('api/loads/load-progress/<int:load_id>/<str:step>/update/', UpdateLoadProgressView.as_view(), name='update-load-progress'),
+    path('api/loads/<int:load_id>/close/', CloseLoadView.as_view(), name='close_load'),
+
+
     # Endpoints de autenticación
     path('token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
