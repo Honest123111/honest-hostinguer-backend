@@ -5,7 +5,7 @@ from rest_framework import serializers
 from django.apps import apps
 from .models import (
     CarrierUser, Customer, AddressO, AddressD, Load, Role, Stop,
-    EquipmentType, Job_Type, OfferHistory, Warning,WarningList,LoadProgress,Truck
+    EquipmentType, Job_Type, OfferHistory, UserPermission, Warning,WarningList,LoadProgress,Truck
 )
 
 
@@ -359,3 +359,8 @@ class TruckSerializer(serializers.ModelSerializer):
     class Meta:
         model = Truck
         fields = ['id', 'user', 'plate_number', 'model', 'equipment_type']
+
+class UserPermissionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UserPermission
+        fields = '__all__'

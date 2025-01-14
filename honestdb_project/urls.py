@@ -9,6 +9,7 @@ from myapp.views import (
     LoadStopsView,
     OfferHistoryView,
     RegisterView,
+    UserPermissionViewSet,
     WarningViewSet,
     StopViewSet,
     CustomerViewSet,
@@ -26,15 +27,16 @@ from myapp.views import (
     UserViewSet,
 )
 
-
 # Registrar los viewsets en el router
 router = DefaultRouter()
+router.register(r'user-permissions', UserPermissionViewSet, basename='user-permissions')
 router.register(r'customers', CustomerViewSet, basename='customers')
 router.register(r'loads', LoadViewSet, basename='loads')
 router.register(r'stops', StopViewSet, basename='stops')
 router.register(r'warnings', WarningViewSet, basename='warnings')
 router.register(r'trucks', TruckViewSet, basename='trucks')
 router.register(r'users', UserViewSet, basename='users')
+
 # Definir las rutas adicionales para vistas personalizadas
 urlpatterns = [
     # Admin
@@ -47,16 +49,12 @@ urlpatterns = [
     path('api/equipment-types/', EquipmentTypeView.as_view(), name='equipment-types-list-create'),  # GET y POST
     path('api/equipment-types/<int:pk>/', EquipmentTypeView.as_view(), name='equipment-types-detail'),  # PUT y DELETE
 
-    # Rutas específicas para operaciones personalizadas
+    # Rutas específicas para operaciones personalizadas de cargas y paradas
     path('api/loads/<int:load_id>/stops/', LoadStopsView.as_view(), name='load-stops'),
     path('api/loads/<int:load_id>/stops/<int:stop_id>/', LoadStopsView.as_view(), name='edit-stop'),
 
     # Ruta personalizada para obtener las paradas de una carga específica
-    path(
-        'api/stops/load/<int:load_id>/',
-        StopViewSet.as_view({'get': 'stops_by_load'}),
-        name='stops-by-load',
-    ),
+    path('api/stops/load/<int:load_id>/', StopViewSet.as_view({'get': 'stops_by_load'}), name='stops-by-load'),
 
     # Rutas para gestionar ofertas
     path('api/loads/<int:load_id>/offers/', OfferHistoryView.as_view(), name='load-offers'),
@@ -74,9 +72,12 @@ urlpatterns = [
     path('api/loads/<int:load_id>/add-warning/', AddWarningToLoadView.as_view(), name='add-warning-to-load'),
     path('api/loads/<int:load_id>/warnings/<int:warning_id>/', LoadWarningsView.as_view(), name='delete-load-warning'),
     path('api/warnings-list/', WarningListView.as_view(), name='warning-list'),
+
+    # Rutas para progreso de carga
     path('api/load-progress/<int:load_id>/', RegisterProgressView.as_view(), name='register-progress'),
     path('api/load-progress-list/<int:load_id>/', LoadProgressListView.as_view(), name='load-progress-list'),
-    # Endpoints de autenticación
+
+    # Endpoints de autenticación usando JWT
     path('token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
 
@@ -85,4 +86,6 @@ urlpatterns = [
     path('assign-role/', AssignRoleView.as_view(), name='assign-role'),
 ]
 
+# Agregar soporte para archivos estáticos
+urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 urlpatterns += static('/progress_pictures/', document_root=settings.BASE_DIR / 'progress_pictures')

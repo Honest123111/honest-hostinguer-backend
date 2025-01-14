@@ -1,11 +1,12 @@
 from email.headerregistry import Group
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
+from django.contrib.auth.models import Permission
 from rest_framework.views import APIView
 from rest_framework.permissions import AllowAny
 from django.db.models import Avg, Sum, Count
 from rest_framework.response import Response
-from .models import Warning
+from .models import CarrierUser, UserPermission, Warning
 from .models import Customer, Load, Stop, EquipmentType, OfferHistory,WarningList,Truck
 from .serializers import (
     AssignRoleSerializer,
@@ -16,6 +17,7 @@ from .serializers import (
     EquipmentTypeSerializer,
     OfferHistorySerializer,
     TruckSerializer,
+    UserPermissionSerializer,
 )
 from django.utils import timezone
 from django.db import models
@@ -555,3 +557,132 @@ class UserViewSet(viewsets.ViewSet):
         serializer = TruckSerializer(trucks, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
+
+class UserPermissionViewSet(viewsets.ViewSet):
+    """
+    ViewSet para gestionar los permisos y las vistas permitidas de los usuarios.
+    """
+    permission_classes = [AllowAny]  # Permitir acceso a cualquier usuario autenticado
+
+    # Mapeo de permisos a las rutas del sidebar
+    permission_view_map = {
+        'myapp.view_dashboard': 'dashboard',
+        'myapp.view_admin': 'admin',
+        'myapp.manage_permissions': 'app-permissions',
+        'myapp.view_find_loads': 'find-loads',
+        'myapp.view_manage_load': 'manage-load',
+        'myapp.view_customer_master': 'customer-master',
+        'myapp.view_loads_master': 'loads-master',
+        'myapp.view_equipment_master': 'equipment-master',
+        'myapp.view_offers_master': 'offers-master',
+        'myapp.view_truck_master': 'truck-master',
+        'myapp.view_amazon_loads': 'amazon-loads',
+    }
+
+    def list(self, request):
+        """
+        Devuelve los permisos de todos los usuarios o de un usuario específico si se pasa un parámetro `id`.
+        """
+        try:
+            user_id = request.query_params.get('id', None)
+
+            if user_id:
+                user = CarrierUser.objects.filter(id=user_id).first()
+                if not user:
+                    return Response({'detail': 'Usuario no encontrado'}, status=status.HTTP_404_NOT_FOUND)
+
+                allowed_views = self.get_allowed_views(user)
+                return Response({
+                    'id': user.id,
+                    'username': user.username,
+                    'email': user.email,
+                    'allowed_views': allowed_views,
+                }, status=status.HTTP_200_OK)
+
+            # Obtener permisos para todos los usuarios
+            users = CarrierUser.objects.all()
+            user_permissions = []
+
+            for user in users:
+                allowed_views = self.get_allowed_views(user)
+                user_permissions.append({
+                    'id': user.id,
+                    'username': user.username,
+                    'email': user.email,
+                    'allowed_views': allowed_views,
+                })
+
+            return Response(user_permissions, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({'error': f'Error interno del servidor: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @action(detail=False, methods=['put'], url_path='update-permissions')
+    def update_permissions(self, request):
+        """
+        Actualiza los permisos de un usuario específico basado en el ID.
+        """
+        try:
+            user_id = request.query_params.get('id')
+            if not user_id:
+                return Response({'error': 'Se requiere el parámetro id'}, status=status.HTTP_400_BAD_REQUEST)
+
+            user = CarrierUser.objects.filter(id=user_id).first()
+            if not user:
+                return Response({'error': 'Usuario no encontrado'}, status=status.HTTP_404_NOT_FOUND)
+
+            new_permissions = request.data.get('allowed_views', [])
+            user.user_permissions.clear()  # Limpiar permisos existentes
+
+            # Asignar permisos
+            for view_name in new_permissions:
+                permission_codename = f"view_{view_name}"
+                try:
+                    permission = Permission.objects.get(codename=permission_codename)
+                    user.user_permissions.add(permission)
+                except Permission.DoesNotExist:
+                    print(f"⚠️ Permiso '{permission_codename}' no encontrado en la base de datos.")
+
+            user.save()
+            return Response({'message': 'Permisos actualizados correctamente'}, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({'error': f'Error interno del servidor: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    def destroy(self, request, id=None):
+        """
+        Elimina un usuario específico por su ID.
+        """
+        try:
+            if not id:
+                return Response({'error': 'Se requiere el parámetro id'}, status=status.HTTP_400_BAD_REQUEST)
+
+            user = CarrierUser.objects.filter(id=id).first()
+            if not user:
+                return Response({'error': 'Usuario no encontrado'}, status=status.HTTP_404_NOT_FOUND)
+
+            # Evitar que un usuario elimine su propia cuenta
+            if request.user.id == user.id:
+                return Response({'error': 'No puedes eliminar tu propia cuenta'}, status=status.HTTP_403_FORBIDDEN)
+
+            user.delete()
+            return Response({'message': f'Usuario {user.username} eliminado correctamente'}, status=status.HTTP_204_NO_CONTENT)
+        except Exception as e:
+            return Response({'error': f'Error interno del servidor: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    def get_allowed_views(self, user):
+        allowed_views = []
+        for perm in user.get_all_permissions():
+            if perm in self.permission_view_map:
+                allowed_views.append(self.permission_view_map[perm])
+            else:
+                print(f"⚠️ Permiso no reconocido: {perm}")
+        return allowed_views
+
+
+    def get_permission_from_view(self, view_name):
+        """
+        Retorna el permiso correspondiente a una vista.
+        """
+        for perm, view in self.permission_view_map.items():
+            if view == view_name:
+                return Permission.objects.filter(codename=perm.split('.')[-1]).first()
+        return None

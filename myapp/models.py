@@ -567,3 +567,10 @@ class Truck(models.Model):
 
     def __str__(self):
         return f"{self.plate_number} - {self.model}"
+
+class UserPermission(models.Model):
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    allowed_views = models.JSONField(default=list, help_text="Lista de vistas permitidas para este usuario")
+
+    def __str__(self):
+        return f"Permissions for {self.user.username}"
