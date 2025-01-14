@@ -25,6 +25,8 @@ from myapp.views import (
     LoadProgressListView,
     TruckViewSet,
     UserViewSet,
+    UpdateLoadProgressView,
+    CloseLoadView
 )
 
 # Registrar los viewsets en el router
@@ -78,6 +80,11 @@ urlpatterns = [
     path('api/load-progress-list/<int:load_id>/', LoadProgressListView.as_view(), name='load-progress-list'),
 
     # Endpoints de autenticación usando JWT
+    path('api/loads/load-progress/<int:load_id>/<str:step>/update/', UpdateLoadProgressView.as_view(), name='update-load-progress'),
+    path('api/loads/<int:load_id>/close/', CloseLoadView.as_view(), name='close_load'),
+
+
+    # Endpoints de autenticación
     path('token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
 

@@ -113,6 +113,7 @@ class Load(models.Model):
     destiny = models.ForeignKey(
         'AddressD', on_delete=models.CASCADE, related_name='load_destiny'
     )
+    is_closed = models.BooleanField(default=False, help_text="Indicates if the load is closed.")
     equipment_type = models.CharField(max_length=100)
     customer = models.ForeignKey('Customer', on_delete=models.CASCADE)
     loaded_miles = models.IntegerField()

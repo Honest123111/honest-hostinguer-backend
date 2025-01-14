@@ -62,6 +62,7 @@ class LoadSerializer(serializers.ModelSerializer):
     tracking_status = serializers.ChoiceField(choices=Load.TRACKING_CHOICES, required=False, default='not_started')
     expiration_date = serializers.DateTimeField(required=False, allow_null=True)
     current_location = serializers.CharField(required=False, allow_null=True)
+    is_closed = serializers.BooleanField(required=False, default=False) 
     payment_status = serializers.ChoiceField(
         choices=[('pending', 'Pending'), ('paid', 'Paid'), ('failed', 'Failed')],
         default='pending',
@@ -82,6 +83,7 @@ class LoadSerializer(serializers.ModelSerializer):
         representation['destiny'] = AddressDSerializer(instance.destiny).data
         representation['customer'] = CustomerSerializer(instance.customer).data
         representation['stops'] = StopSerializer(instance.stops.all(), many=True).data
+        representation['is_closed'] = instance.is_closed 
         if instance.equipment:
             representation['equipment'] = {
                 'id': instance.equipment.idmmequipment,

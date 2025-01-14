@@ -3,6 +3,7 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from django.contrib.auth.models import Permission
 from rest_framework.views import APIView
+from django.contrib.contenttypes.models import ContentType
 from rest_framework.permissions import AllowAny
 from django.db.models import Avg, Sum, Count
 from rest_framework.response import Response
@@ -39,7 +40,7 @@ class CustomerViewSet(viewsets.ModelViewSet):
 
 # Load ViewSet
 class LoadViewSet(viewsets.ModelViewSet):
-    queryset = Load.objects.prefetch_related('stops').all()  # Pre-fetch stops para optimizar
+    queryset = Load.objects.filter(is_closed=False).prefetch_related('stops')  # ✅ Filtrar cargas abiertas y optimizar prefetch
     serializer_class = LoadSerializer
     
 class TruckViewSet(viewsets.ModelViewSet):
@@ -57,6 +58,9 @@ class TruckViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         self.perform_create(serializer)
+        user = serializer.instance.user
+        user.number_of_trucks = user.trucks.count()  
+        user.save()
         headers = self.get_success_headers(serializer.data)
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
@@ -74,6 +78,10 @@ class TruckViewSet(viewsets.ModelViewSet):
     def destroy(self, request, *args, **kwargs):
         """Eliminar un camión solo si no tiene cargas activas."""
         truck = self.get_object()
+        user = truck.user
+        self.perform_destroy(truck)
+        user.number_of_trucks = user.trucks.count()
+        user.save()
         if Load.objects.filter(equipment=truck, status__in=['pending', 'in_progress']).exists():
             return Response({"detail": "Cannot delete a truck that has active loads."}, status=status.HTTP_400_BAD_REQUEST)
         return super().destroy(request, *args, **kwargs)
@@ -376,7 +384,7 @@ class UserAssignedLoadsView(APIView):
             return Response({"error": "User not authenticated"}, status=401)
 
         # Obtener las cargas asignadas al usuario
-        assigned_loads = Load.objects.filter(assigned_user=user)
+        assigned_loads = Load.objects.filter(assigned_user=user, is_closed=False)
 
         # Si no hay cargas asignadas, devolver un 204 No Content
         if not assigned_loads.exists():
@@ -557,7 +565,6 @@ class UserViewSet(viewsets.ViewSet):
         serializer = TruckSerializer(trucks, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
-
 class UserPermissionViewSet(viewsets.ViewSet):
     """
     ViewSet para gestionar los permisos y las vistas permitidas de los usuarios.
@@ -569,15 +576,16 @@ class UserPermissionViewSet(viewsets.ViewSet):
         'myapp.view_dashboard': 'dashboard',
         'myapp.view_admin': 'admin',
         'myapp.manage_permissions': 'app-permissions',
-        'myapp.view_find_loads': 'find-loads',
-        'myapp.view_manage_load': 'manage-load',
-        'myapp.view_customer_master': 'customer-master',
-        'myapp.view_loads_master': 'loads-master',
-        'myapp.view_equipment_master': 'equipment-master',
-        'myapp.view_offers_master': 'offers-master',
-        'myapp.view_truck_master': 'truck-master',
-        'myapp.view_amazon_loads': 'amazon-loads',
+        'myapp.view_find-loads': 'find-loads',
+        'myapp.view_manage-load': 'manage-load',
+        'myapp.view_customer-master': 'customer-master',
+        'myapp.view_loads-master': 'loads-master',
+        'myapp.view_equipment-master': 'equipment-master',
+        'myapp.view_offers-master': 'offers-master',
+        'myapp.view_truck-master': 'truck-master',
+        'myapp.view_amazon-loads': 'amazon-loads',
     }
+
 
     def list(self, request):
         """
@@ -637,16 +645,20 @@ class UserPermissionViewSet(viewsets.ViewSet):
             for view_name in new_permissions:
                 permission_codename = f"view_{view_name}"
                 try:
-                    permission = Permission.objects.get(codename=permission_codename)
-                    user.user_permissions.add(permission)
-                except Permission.DoesNotExist:
-                    print(f"⚠️ Permiso '{permission_codename}' no encontrado en la base de datos.")
+                    permission = Permission.objects.filter(codename=permission_codename).first()
+                    if permission:
+                        user.user_permissions.add(permission)
+                        print(f"✅ Permiso '{permission_codename}' asignado.")
+                    else:
+                        print(f"⚠️ Permiso '{permission_codename}' no encontrado.")
+                except Exception as e:
+                    print(f"⚠️ Error asignando el permiso '{permission_codename}': {e}")
 
             user.save()
             return Response({'message': 'Permisos actualizados correctamente'}, status=status.HTTP_200_OK)
         except Exception as e:
             return Response({'error': f'Error interno del servidor: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
+        
     def destroy(self, request, id=None):
         """
         Elimina un usuario específico por su ID.
@@ -669,12 +681,16 @@ class UserPermissionViewSet(viewsets.ViewSet):
             return Response({'error': f'Error interno del servidor: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     def get_allowed_views(self, user):
+        """
+        Devuelve las vistas permitidas basadas en los permisos del usuario.
+        """
         allowed_views = []
-        for perm in user.get_all_permissions():
-            if perm in self.permission_view_map:
+        user_permissions = user.get_all_permissions()
+
+        for perm in self.permission_view_map.keys():
+            if perm in user_permissions:
                 allowed_views.append(self.permission_view_map[perm])
-            else:
-                print(f"⚠️ Permiso no reconocido: {perm}")
+
         return allowed_views
 
 
@@ -686,3 +702,53 @@ class UserPermissionViewSet(viewsets.ViewSet):
             if view == view_name:
                 return Permission.objects.filter(codename=perm.split('.')[-1]).first()
         return None
+class UpdateLoadProgressView(APIView):
+    """
+    API para actualizar el estado de `pending_for_approval` usando idmmload y step.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def patch(self, request, load_id, step):
+        # Decodificar `step` si viene codificado
+        step = step.replace('%20', ' ').replace('%3A', ':')
+
+        # Buscar el progreso usando filter().first()
+        load_progress = LoadProgress.objects.filter(idmmload__idmmload=load_id, step=step).first()
+
+        if not load_progress:
+            return Response({"error": "LoadProgress not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        # Cambiar el estado de pending_for_approval a False
+        load_progress.pending_for_approval = False
+        load_progress.save()
+
+        return Response(
+            {
+                "message": "LoadProgress updated successfully",
+                "pending_for_approval": load_progress.pending_for_approval,
+            },
+            status=status.HTTP_200_OK,
+        )
+
+class CloseLoadView(APIView):
+    """
+    API para cerrar una carga (cambiar `is_closed` a `True`).
+    """
+    permission_classes = [IsAuthenticated]
+
+    def patch(self, request, load_id):
+        try:
+            # Buscar la carga por su ID
+            load = Load.objects.get(idmmload=load_id)
+
+            # Verificar si la carga ya está cerrada
+            if load.is_closed:
+                return Response({"error": "Load is already closed."}, status=status.HTTP_400_BAD_REQUEST)
+
+            # Cambiar el estado a `is_closed = True`
+            load.is_closed = True
+            load.save()
+
+            return Response({"message": "Load closed successfully.", "is_closed": load.is_closed}, status=status.HTTP_200_OK)
+        except Load.DoesNotExist:
+            return Response({"error": "Load not found."}, status=status.HTTP_404_NOT_FOUND)
