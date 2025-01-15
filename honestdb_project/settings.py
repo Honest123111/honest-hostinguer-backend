@@ -26,7 +26,7 @@ SECRET_KEY = 'django-insecure-psks!+ztpo^r(^@upyd@+enk7%%7^*k3n8k+7jvc3v*$#i%5ad
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['honest-backend.herokuapp.com']
 
 AUTH_USER_MODEL = 'myapp.CarrierUser'  # Reemplaza "your_app_name" con el nombre de tu app
 
@@ -68,6 +68,8 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'corsheaders.middleware.CorsMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',  # Agregar aquí
+
 ]
 
 CORS_ALLOW_ALL_ORIGINS = True
@@ -99,7 +101,7 @@ WSGI_APPLICATION = 'honestdb_project.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),
     }
 }
 
@@ -139,6 +141,8 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/4.2/howto/static-files/
 
 STATIC_URL = 'static/'
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
@@ -168,6 +172,10 @@ SIMPLE_JWT = {
     'AUTH_HEADER_TYPES': ('Bearer',),
 }
 
-STATIC_URL = '/static/'
 PROGRESS_PICTURES_URL = '/progress_pictures/'
 PROGRESS_PICTURES_ROOT = BASE_DIR / 'progress_pictures'
+
+import django_heroku
+django_heroku.settings(locals())
+
+
