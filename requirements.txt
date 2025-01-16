@@ -31,6 +31,7 @@ distlib==0.3.6
 dj-database-url==2.3.0
 Django==5.1.5
 django-celery-beat==2.7.0
+django-celery-results==2.5.1
 django-cors-headers==3.13.0
 django-extensions==3.2.3
 django-heroku==0.3.1
