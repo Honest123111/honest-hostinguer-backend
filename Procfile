@@ -1,1 +1,1 @@
-web: gunicorn honest-backend.wsgi
+web: gunicorn honestdb_project.wsgi
