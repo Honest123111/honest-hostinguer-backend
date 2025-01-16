@@ -35,6 +35,7 @@ django-cors-headers==3.13.0
 django-extensions==3.2.3
 django-heroku==0.3.1
 django-model-utils==4.3.1
+django-redis==5.4.0
 django-rest-knox==4.2.0
 django-timezone-field==7.0
 djangorestframework==3.14.0

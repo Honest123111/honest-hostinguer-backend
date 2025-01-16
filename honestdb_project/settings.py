@@ -173,6 +173,20 @@ SIMPLE_JWT = {
     'AUTH_HEADER_TYPES': ('Bearer',),
 }
 
+CACHES = {
+    "default": {
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": os.getenv("REDISCLOUD_URL"),  # Usa directamente la URL de Redis
+        "OPTIONS": {
+            "CLIENT_CLASS": "django_redis.client.DefaultClient",
+        }
+    }
+}
+
+# Opcional: Configuración para usar Redis como backend de sesiones
+SESSION_ENGINE = "django.contrib.sessions.backends.cache"
+SESSION_CACHE_ALIAS = "default"
+
 PROGRESS_PICTURES_URL = '/progress_pictures/'
 PROGRESS_PICTURES_ROOT = BASE_DIR / 'progress_pictures'
 
