@@ -119,7 +119,11 @@ class Load(models.Model):
     loaded_miles = models.IntegerField()
     total_weight = models.IntegerField()
     commodity = models.CharField(max_length=100)
-    classifications_and_certifications = models.CharField(max_length=255)
+    classifications_and_certifications = models.CharField(
+        max_length=255,
+        default="A",
+        help_text="Classifications and certifications of the load"
+    )
     offer = models.DecimalField(max_digits=10, decimal_places=2)
     is_offerted = models.BooleanField(default=False)
     number_of_offers = models.IntegerField(default=0)
@@ -257,9 +261,6 @@ class Load(models.Model):
     def get_active_loads():
         """Obtiene todas las cargas activas."""
         return Load.objects.filter(status__in=['pending', 'in_progress'])
-    
-    
-
 
 # Opciones para el tipo de acción
 ACTION_CHOICES = [
