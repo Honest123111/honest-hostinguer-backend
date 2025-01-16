@@ -66,7 +66,7 @@ def get_coordinates(address, zip_code=None, state=None, retries=3, delay=5):
 
     # Try Google Maps as a fallback
     try:
-        google_api_key = "AIzaSyAmmAZPLEowFIuQpox5eEyGgLtaIaTPD_o"
+        google_api_key = "AIzaSyDbt0MU_QRza_GErVNPhbsTL89KL3pAR-w"
         url_google = "https://maps.googleapis.com/maps/api/geocode/json"
         params_google = {"address": query, "key": google_api_key}
         response = requests.get(url_google, params=params_google, timeout=10)
