@@ -26,7 +26,7 @@ SECRET_KEY = 'django-insecure-psks!+ztpo^r(^@upyd@+enk7%%7^*k3n8k+7jvc3v*$#i%5ad
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['honest-backend.herokuapp.com']
+ALLOWED_HOSTS = ['honest-backend-b309c2837f9a.herokuapp.com']
 
 AUTH_USER_MODEL = 'myapp.CarrierUser'  # Reemplaza "your_app_name" con el nombre de tu app
 
@@ -140,7 +140,8 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/4.2/howto/static-files/
 
-STATIC_URL = 'static/'
+STATIC_URL = '/static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 

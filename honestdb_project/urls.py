@@ -1,9 +1,10 @@
 from django.contrib import admin
 from django.urls import path, include
-from rest_framework.routers import DefaultRouter
-from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from django.conf import settings
 from django.conf.urls.static import static
+from django.views.generic.base import RedirectView
+from rest_framework.routers import DefaultRouter
+from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from myapp.views import (
     AssignRoleView,
     LoadStopsView,
@@ -26,7 +27,7 @@ from myapp.views import (
     TruckViewSet,
     UserViewSet,
     UpdateLoadProgressView,
-    CloseLoadView
+    CloseLoadView,
 )
 
 # Registrar los viewsets en el router
@@ -41,6 +42,9 @@ router.register(r'users', UserViewSet, basename='users')
 
 # Definir las rutas adicionales para vistas personalizadas
 urlpatterns = [
+    # Redirección de la raíz (/) al panel de administración
+    path('', RedirectView.as_view(url='/admin/', permanent=True)),
+
     # Admin
     path('admin/', admin.site.urls),
 
@@ -48,8 +52,8 @@ urlpatterns = [
     path('api/', include(router.urls)),
 
     # Rutas para EquipmentTypeView
-    path('api/equipment-types/', EquipmentTypeView.as_view(), name='equipment-types-list-create'),  # GET y POST
-    path('api/equipment-types/<int:pk>/', EquipmentTypeView.as_view(), name='equipment-types-detail'),  # PUT y DELETE
+    path('api/equipment-types/', EquipmentTypeView.as_view(), name='equipment-types-list-create'),
+    path('api/equipment-types/<int:pk>/', EquipmentTypeView.as_view(), name='equipment-types-detail'),
 
     # Rutas específicas para operaciones personalizadas de cargas y paradas
     path('api/loads/<int:load_id>/stops/', LoadStopsView.as_view(), name='load-stops'),
@@ -83,7 +87,6 @@ urlpatterns = [
     path('api/loads/load-progress/<int:load_id>/<str:step>/update/', UpdateLoadProgressView.as_view(), name='update-load-progress'),
     path('api/loads/<int:load_id>/close/', CloseLoadView.as_view(), name='close_load'),
 
-
     # Endpoints de autenticación
     path('token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
@@ -93,6 +96,6 @@ urlpatterns = [
     path('assign-role/', AssignRoleView.as_view(), name='assign-role'),
 ]
 
-# Agregar soporte para archivos estáticos
+# Agregar soporte para archivos estáticos y de medios
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 urlpatterns += static('/progress_pictures/', document_root=settings.BASE_DIR / 'progress_pictures')
