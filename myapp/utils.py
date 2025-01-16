@@ -215,55 +215,64 @@ def parse_email_body(body):
         print(f"Error parsing email: {e}")
         return None
 
-# Function to create the Load from email data
 def create_load_from_data(load_data):
     try:
-        # Calculate coordinates for origin and destination
-        origin_coordinates = get_coordinates(load_data["origin_address"])
+        # Validate and fetch coordinates for origin
+        origin_coordinates = get_coordinates(load_data.get("origin_address"))
         if not origin_coordinates:
-            print(f"Error: Could not get coordinates for origin address {load_data['origin_address']}.")
+            print(f"Error: Could not get coordinates for origin address {load_data.get('origin_address')}.")
             return
 
-        destiny_coordinates = get_coordinates(load_data["destiny_address"])
+        # Validate and fetch coordinates for destination
+        destiny_coordinates = get_coordinates(load_data.get("destiny_address"))
         if not destiny_coordinates:
-            print(f"Error: Could not get coordinates for destination address {load_data['destiny_address']}.")
+            print(f"Error: Could not get coordinates for destination address {load_data.get('destiny_address')}.")
             return
 
         # Create origin and destination addresses
         origin = AddressO.objects.create(
-            zip_code=load_data["origin_zip"],
-            address=load_data["origin_address"],
-            state=load_data["origin_state"],
+            zip_code=load_data.get("origin_zip"),
+            address=load_data.get("origin_address"),
+            state=load_data.get("origin_state"),
             coordinates=origin_coordinates
         )
         destiny = AddressD.objects.create(
-            zip_code=load_data["destiny_zip"],
-            address=load_data["destiny_address"],
-            state=load_data["destiny_state"],
+            zip_code=load_data.get("destiny_zip"),
+            address=load_data.get("destiny_address"),
+            state=load_data.get("destiny_state"),
             coordinates=destiny_coordinates
         )
 
-        # Get the customer
-        customer = Customer.objects.get(id=load_data["customer_id"])
+        # Fetch the customer
+        try:
+            customer = Customer.objects.get(id=load_data.get("customer_id"))
+        except Customer.DoesNotExist:
+            print(f"Error: Customer with ID {load_data.get('customer_id')} does not exist.")
+            return
 
-        # Create the Load
+        # Create the Load object
         load = Load.objects.create(
             origin=origin,
             destiny=destiny,
-            equipment_type=load_data["equipment_type"],
+            equipment_type=load_data.get("equipment_type"),
             customer=customer,
-            loaded_miles=load_data["loaded_miles"],
-            total_weight=load_data["total_weight"],
-            commodity=load_data["commodity"],
-            offer=load_data["offer"],
+            loaded_miles=load_data.get("loaded_miles", 0),
+            total_weight=load_data.get("total_weight", 0),
+            commodity=load_data.get("commodity"),
+            offer=load_data.get("offer", 0.0),
         )
 
-        # Create stops
+        # Validate and create stops
         stops_details = ""
         for stop_data in load_data.get("stops", []):
-            stop_coordinates = get_coordinates(stop_data["location"])
+            stop_coordinates = get_coordinates(stop_data.get("location"))
             if not stop_coordinates:
-                print(f"Error: Could not get coordinates for stop {stop_data['location']}.")
+                print(f"Error: Could not get coordinates for stop {stop_data.get('location')}.")
+                continue
+
+            # Validate required fields in stop data
+            if not all(key in stop_data for key in ["location", "date_time", "action_type", "estimated_weight", "quantity"]):
+                print(f"Error: Incomplete stop data: {stop_data}")
                 continue
 
             Stop.objects.create(
@@ -283,7 +292,7 @@ def create_load_from_data(load_data):
                 f"  Quantity: {stop_data['quantity']}\n\n"
             )
 
-        print(f"Load successfully created for customer {customer.name}")
+        print(f"Load successfully created for customer {customer.name}.")
 
         # Send email notification
         subject = f"New Load Created - Customer: {customer.name}"
@@ -301,8 +310,10 @@ def create_load_from_data(load_data):
             f"Thank you,\nHonest Transportation INC"
         )
         send_email(subject, body, recipient="danielcampu28@gmail.com")  # Replace with desired recipient
+
     except Exception as e:
         print(f"Error creating Load: {e}")
+
 
 #############################################
 # NUEVAS FUNCIONES PARA PROCESAR SPOT LOADS #
