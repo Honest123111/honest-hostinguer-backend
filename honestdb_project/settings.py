@@ -46,7 +46,9 @@ INSTALLED_APPS = [
     'myapp',
     'django_celery_beat',
     'django_extensions',  # Herramientas adicionales para desarrollo
+    'django_celery_results',
 ]
+
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
@@ -157,6 +159,7 @@ CELERY_ACCEPT_CONTENT = ['json']  # Acepta solo JSON
 CELERY_TASK_SERIALIZER = 'json'  # Serializa las tareas como JSON
 CELERY_RESULT_BACKEND = 'redis://localhost:6379/0'
 
+
 CELERY_BEAT_SCHEDULE = {
     'extract-emails-every-5-seconds': {
         'task': 'myapp.tasks.extract_emails_task',
@@ -182,6 +185,16 @@ CACHES = {
         }
     }
 }
+
+# Configuración de Celery
+CELERY_BROKER_URL = os.getenv('REDISCLOUD_URL')  # URL del broker (Redis en tu caso)
+CELERY_ACCEPT_CONTENT = ['json']  # Formatos aceptados para las tareas
+CELERY_TASK_SERIALIZER = 'json'  # Serializador para las tareas
+CELERY_RESULT_BACKEND = os.getenv('REDISCLOUD_URL')  # Almacén de resultados (opcional)
+CELERY_RESULT_EXPIRES = 3600  # Tiempo de expiración de los resultados (en segundos)
+CELERY_TIMEZONE = 'UTC'  # Configura la zona horaria (puedes usar tu zona local)
+
+
 
 # Opcional: Configuración para usar Redis como backend de sesiones
 SESSION_ENGINE = "django.contrib.sessions.backends.cache"
