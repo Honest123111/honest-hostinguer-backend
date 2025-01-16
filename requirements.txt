@@ -113,3 +113,5 @@ wcwidth==0.2.5
 whitenoise==6.8.2
 wsproto==1.2.0
 zipp==3.11.0
+celery==5.4.0
+
