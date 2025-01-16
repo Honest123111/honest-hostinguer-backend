@@ -119,8 +119,10 @@ def fetch_and_create_load():
         # Search emails with the subject "NEW LOAD"
         search_criteria = f'(SUBJECT "NEW LOAD" SINCE "{two_days_ago_str}")'
         status, messages = mail.search(None, search_criteria)
+        print(f"Found {len(messages[0].split())} emails matching the criteria.")
 
         for num in messages[0].split():
+            print(f"Processing email number {num.decode('utf-8')}...")
             status, msg_data = mail.fetch(num, "(RFC822)")
             for response_part in msg_data:
                 if isinstance(response_part, tuple):
@@ -129,7 +131,7 @@ def fetch_and_create_load():
                     # Message ID
                     msg_id = msg["Message-ID"]
                     if ProcessedEmail.objects.filter(message_id=msg_id).exists():
-                        print(f"Email with ID {msg_id} already processed.")
+                        print(f"Email with ID {msg_id} already processed. Skipping.")
                         continue
 
                     # Decode the email body
@@ -142,18 +144,28 @@ def fetch_and_create_load():
                     else:
                         body = msg.get_payload(decode=True).decode('utf-8', 'ignore')
 
+                    print(f"Email body: {body[:100]}...")  # Log a preview of the body
+
                     # Parse and create the load
                     load_data = parse_email_body(body)
                     if load_data:
+                        print(f"Parsed load data: {load_data}")
                         create_load_from_data(load_data)
+                        print(f"Load created successfully for data: {load_data}")
+                    else:
+                        print("Failed to parse load data. Skipping this email.")
 
                     # Mark the email as processed
                     ProcessedEmail.objects.create(message_id=msg_id)
+                    print(f"Marked email with ID {msg_id} as processed.")
 
         mail.logout()
         print("Email extraction completed successfully.")
     except Exception as e:
         print(f"Error in fetch_and_create_load: {e}")
+        import traceback
+        traceback.print_exc()  # Show detailed error traceback
+
 
 # Function to parse the email body
 def parse_email_body(body):
