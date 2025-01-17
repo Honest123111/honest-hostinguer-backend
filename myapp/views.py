@@ -163,7 +163,7 @@ class LoadStopsView(APIView):
         stop_data = request.data.get("stops", [])
 
         for stop in stop_data:
-            stop["load"] = load.id  # Asociar con el campo correcto
+            stop["load"] = load.idmmload  # Asociar con el campo correcto
 
         serializer = StopSerializer(data=stop_data, many=True)
         if serializer.is_valid():
