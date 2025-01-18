@@ -8,12 +8,10 @@ from .models import (
     EquipmentType, Job_Type, OfferHistory, UserPermission, Warning,WarningList,LoadProgress,Truck
 )
 
-
 class CustomerSerializer(serializers.ModelSerializer):
     class Meta:
         model = Customer
         fields = '__all__'
-
 
 class AddressOSerializer(serializers.ModelSerializer):
     class Meta:

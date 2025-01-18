@@ -39,9 +39,52 @@ class CustomerViewSet(viewsets.ModelViewSet):
 
 
 # Load ViewSet
+from django.shortcuts import get_object_or_404
+
 class LoadViewSet(viewsets.ModelViewSet):
-    queryset = Load.objects.filter(is_closed=False).prefetch_related('stops')  # ✅ Filtrar cargas abiertas y optimizar prefetch
     serializer_class = LoadSerializer
+    permission_classes = [IsAuthenticated]
+    def get_queryset(self):
+        """
+        Obtiene las cargas abiertas que cumplen con las reglas y luego las que no tienen usuario asignado.
+        """
+        # Filtrar cargas abiertas
+        base_queryset = Load.objects.filter(is_closed=False).prefetch_related('stops')
+
+        # 1. Cargas que cumplen las reglas existentes
+        valid_loads = base_queryset.filter(status__in=['pending', 'in_progress'])
+
+        # 2. Cargas sin usuario asignado
+        unassigned_loads = base_queryset.filter(
+            assigned_user__isnull=True
+        ).exclude(idmmload__in=valid_loads.values_list('idmmload', flat=True))
+
+        # Combinar ambos conjuntos de cargas en una lista
+        combined_loads = list(valid_loads) + list(unassigned_loads)
+
+        # Devolver los objetos ordenados si es necesario
+        return combined_loads
+
+    def get_object(self):
+        """
+        Obtiene un objeto Load específico basado en la clave primaria.
+        """
+        # Asegúrate de que la clave primaria coincida con tu modelo (id o idmmload)
+        return get_object_or_404(Load, pk=self.kwargs['pk'])
+
+    def update(self, request, *args, **kwargs):
+        """
+        Actualiza una carga específica.
+        """
+        partial = kwargs.pop('partial', False)
+        instance = self.get_object()  # Usa el método get_object para obtener la instancia
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
+
+        return Response(serializer.data)
+
+
     
 class TruckViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
@@ -163,7 +206,7 @@ class LoadStopsView(APIView):
         stop_data = request.data.get("stops", [])
 
         for stop in stop_data:
-            stop["load"] = load.idmmload  # Asociar con el campo correcto
+            stop["load"] = load.idmmload
 
         serializer = StopSerializer(data=stop_data, many=True)
         if serializer.is_valid():
@@ -216,12 +259,7 @@ class OfferHistoryView(APIView):
         """
         load = get_object_or_404(Load, idmmload=load_id)
 
-        # Validar si el load tiene alguna oferta previa
-        if load.is_offerted:
-            return Response(
-                {"detail": f"La carga {load_id} ya tiene ofertas registradas."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        
 
         serializer = OfferHistorySerializer(data=request.data)
         if serializer.is_valid():
@@ -565,6 +603,8 @@ class UserViewSet(viewsets.ViewSet):
         serializer = TruckSerializer(trucks, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
+from django.views.decorators.csrf import csrf_exempt
+from django.utils.decorators import method_decorator
 class UserPermissionViewSet(viewsets.ViewSet):
     """
     ViewSet para gestionar los permisos y las vistas permitidas de los usuarios.
@@ -589,7 +629,7 @@ class UserPermissionViewSet(viewsets.ViewSet):
 
     def list(self, request):
         """
-        Devuelve los permisos de todos los usuarios o de un usuario específico si se pasa un parámetro `id`.
+        Devuelve los permisos de todos los usuarios o de un usuario específico si se pasa un parámetro id.
         """
         try:
             user_id = request.query_params.get('id', None)
@@ -624,6 +664,7 @@ class UserPermissionViewSet(viewsets.ViewSet):
         except Exception as e:
             return Response({'error': f'Error interno del servidor: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+    @method_decorator(csrf_exempt, name='dispatch')
     @action(detail=False, methods=['put'], url_path='update-permissions')
     def update_permissions(self, request):
         """
@@ -752,3 +793,39 @@ class CloseLoadView(APIView):
             return Response({"message": "Load closed successfully.", "is_closed": load.is_closed}, status=status.HTTP_200_OK)
         except Load.DoesNotExist:
             return Response({"error": "Load not found."}, status=status.HTTP_404_NOT_FOUND)
+
+class ClosedLoadsView(APIView):
+    
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        closed_loads = Load.objects.filter(is_closed=True)
+
+        # Serializar los datos
+        serializer = LoadSerializer(closed_loads, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+def get(self, request):
+        try:
+            # Cantidad de usuarios registrados
+            user_count = User.objects.count()
+
+            # Cantidad de camiones registrados
+            truck_count = Truck.objects.count()
+
+            # Cantidad de cargas cerradas
+            closed_loads_count = Load.objects.filter(is_closed=True).count()
+
+            # Cantidad de cargas asignadas
+            assigned_loads_count = Load.objects.filter(assigned_user__isnull=False).count()
+
+            # Preparar respuesta
+            data = {
+                "user_count": user_count,
+                "truck_count": truck_count,
+                "closed_loads_count": closed_loads_count,
+                "assigned_loads_count": assigned_loads_count,
+            }
+            return Response(data, status=200)
+        except Exception as e:
+            return Response({"error": str(e)}, status=500)
