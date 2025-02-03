@@ -206,4 +206,9 @@ PROGRESS_PICTURES_ROOT = BASE_DIR / 'progress_pictures'
 import django_heroku
 django_heroku.settings(locals())
 
-
+CSRF_TRUSTED_ORIGINS = [
+    'http://localhost:4200',
+    'http://127.0.0.1:4200',
+    'https://honesttransportationfront.web.app/',
+    # ...
+]
