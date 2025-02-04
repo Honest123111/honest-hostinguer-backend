@@ -832,19 +832,11 @@ def get(self, request):
             return Response({"error": str(e)}, status=500)
 
 class AssignLoadWithoutOfferView(APIView):
-    """Vista para asignar una carga a un usuario sin necesidad de una oferta."""
-    permission_classes = [IsAuthenticated]  # Requiere autenticación
+    """Vista para asignar una carga sin necesidad de una oferta."""
+    permission_classes = [IsAuthenticated]
 
-    def post(self, request, load_id):
-        """
-        Asigna una carga al usuario autenticado sin necesidad de una oferta.
-        
-        Parámetros:
-        - load_id: ID de la carga a asignar (enviado en la URL).
-        """
-        user = request.user  # Usuario autenticado
-
-        # ✅ Usa `idmmload` en lugar de `id`
+    def patch(self, request, load_id):
+        user = request.user
         load = get_object_or_404(Load, idmmload=load_id)
 
         try:
@@ -853,4 +845,4 @@ class AssignLoadWithoutOfferView(APIView):
         except ValidationError as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
-            return Response({"error": "An unexpected error occurred", "details": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response({"error": "Unexpected error", "details": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
