@@ -833,7 +833,6 @@ def get(self, request):
 
 class AssignLoadWithoutOfferView(APIView):
     """Vista para asignar una carga sin necesidad de una oferta."""
-    permission_classes = [IsAuthenticated]
 
     def patch(self, request, load_id):
         user = request.user
