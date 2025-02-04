@@ -10,7 +10,7 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from email.mime.image import MIMEImage
 import re
-import openpyxl # type: ignore
+import openpyxl 
 from django.db import transaction
 import os 
 # Configuration for IMAP and SMTP servers
