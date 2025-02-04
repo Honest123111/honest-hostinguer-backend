@@ -831,16 +831,35 @@ def get(self, request):
         except Exception as e:
             return Response({"error": str(e)}, status=500)
 
-class AssignLoadWithoutOfferView(APIView):
-    """Vista para asignar una carga sin necesidad de una oferta."""
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
+from rest_framework.permissions import IsAuthenticated
+from django.shortcuts import get_object_or_404
+from django.core.exceptions import ValidationError
+from myapp.models import OfferHistory, Load
 
-    def patch(self, request, load_id):
-        user = request.user
+class AssignLoadWithoutOfferView(APIView):
+    """Vista para asignar una carga a un usuario sin necesidad de una oferta."""
+    permission_classes = [IsAuthenticated]  # Requiere autenticación
+
+    def post(self, request, load_id):
+        """
+        Asigna una carga al usuario autenticado sin necesidad de una oferta.
+        
+        Parámetros:
+        - load_id: ID de la carga a asignar (enviado en la URL).
+        """
+        user = request.user  # Usuario autenticado
+
+        if not user.is_authenticated:
+            return Response({"error": "User is not authenticated"}, status=status.HTTP_403_FORBIDDEN)
+
         load = get_object_or_404(Load, idmmload=load_id)
 
         try:
             message = OfferHistory.assign_load_without_offer(load, user)
-            return Response({"message": message}, status=status.HTTP_200_OK)
+            return Response({"message": message}, status=status.HTTP_201_CREATED)
         except ValidationError as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
