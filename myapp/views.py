@@ -6,6 +6,7 @@ from rest_framework.views import APIView
 from django.contrib.contenttypes.models import ContentType
 from rest_framework.permissions import AllowAny
 from django.db.models import Avg, Sum, Count
+from django.core.exceptions import ValidationError
 from rest_framework.response import Response
 from .models import CarrierUser, UserPermission, Warning
 from .models import Customer, Load, Stop, EquipmentType, OfferHistory,WarningList,Truck
@@ -829,3 +830,27 @@ def get(self, request):
             return Response(data, status=200)
         except Exception as e:
             return Response({"error": str(e)}, status=500)
+
+class AssignLoadWithoutOfferView(APIView):
+    """Vista para asignar una carga a un usuario sin necesidad de una oferta."""
+    permission_classes = [IsAuthenticated]  # Requiere autenticación
+
+    def post(self, request, load_id):
+        """
+        Asigna una carga al usuario autenticado sin necesidad de una oferta.
+        
+        Parámetros:
+        - load_id: ID de la carga a asignar (enviado en la URL).
+        """
+        user = request.user  # Usuario autenticado
+
+        # ✅ Usa `idmmload` en lugar de `id`
+        load = get_object_or_404(Load, idmmload=load_id)
+
+        try:
+            message = OfferHistory.assign_load_without_offer(load, user)
+            return Response({"message": message}, status=status.HTTP_200_OK)
+        except ValidationError as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response({"error": "An unexpected error occurred", "details": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

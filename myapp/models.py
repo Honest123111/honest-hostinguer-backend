@@ -392,11 +392,6 @@ class OfferHistory(models.Model):
         self.status = 'rejected'
         self.save()
 
-        # Opción adicional: liberar la carga si es necesario
-        # self.load.is_reserved = False
-        # self.load.assigned_user = None
-        # self.load.save()
-
     def save(self, *args, **kwargs):
         """Sobrescribir el método save para detectar cambios en los términos de la oferta."""
         if self.pk:
@@ -406,11 +401,38 @@ class OfferHistory(models.Model):
                 self.proposed_pickup_date != original.proposed_pickup_date or
                 self.proposed_delivery_date != original.proposed_delivery_date):
                 self.terms_change = True
+        
+        # Validar que la oferta no sea mayor al 50% del valor base del load
+        max_offer = self.load.offer * 1.5
+        if self.amount > max_offer:
+            raise ValidationError(f'Offer amount cannot exceed 150% of the base load offer (Max: {max_offer}).')
+        
         super().save(*args, **kwargs)
 
     def __str__(self):
         """Representación en cadena del modelo."""
         return f'Offer {self.amount} by {self.user.username} for Load {self.load.idmmload} on {self.date}'
+
+    # ✅ **Nuevo Método para Asignar una Carga sin Oferta**
+    @classmethod
+    def assign_load_without_offer(cls, load, user):
+        """
+        Asigna una carga a un usuario sin necesidad de crear una oferta.
+        
+        Parámetros:
+        - load: La instancia del modelo Load que se asignará.
+        - user: La instancia del usuario al que se le asignará la carga.
+        """
+        # Verificar si la carga ya está reservada
+        if load.is_reserved:
+            raise ValidationError('This load is already reserved.')
+
+        # Asignar la carga al usuario y marcarla como reservada
+        load.is_reserved = True
+        load.assigned_user = user
+        load.save()
+
+        return f'Load {load.idmmload} has been assigned to {user.username} without an offer.'
 
     # Configuraciones meta del modelo
     class Meta:
@@ -421,7 +443,7 @@ class OfferHistory(models.Model):
         ordering = ['-date']  # Ordenar por fecha descendente
         verbose_name = 'Offer History'
         verbose_name_plural = 'Offer Histories'
-
+        
 class Job_Type(models.Model):
     idmmjob = models.AutoField(primary_key=True)
     name = models.CharField(max_length=100)

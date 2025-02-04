@@ -6,6 +6,7 @@ from django.views.generic.base import RedirectView
 from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from myapp.views import (
+    AssignLoadWithoutOfferView,
     AssignRoleView,
     LoadStopsView,
     OfferHistoryView,
@@ -94,6 +95,10 @@ urlpatterns = [
     # Gestión de usuarios y roles
     path('register/', RegisterView.as_view(), name='register'),
     path('assign-role/', AssignRoleView.as_view(), name='assign-role'),
+
+    # Aceptar carga sin ofertar
+    path('api/loads/<int:load_id>/assign-without-offer/', AssignLoadWithoutOfferView.as_view(), name='assign-load-without-offer'),
+
 ]
 
 # Agregar soporte para archivos estáticos y de medios
