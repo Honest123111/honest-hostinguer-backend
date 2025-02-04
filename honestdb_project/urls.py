@@ -8,9 +8,12 @@ from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from myapp.views import (
     AssignLoadWithoutOfferView,
     AssignRoleView,
+    ClosedLoadsView,
+    ExcelUploadView,
     LoadStopsView,
     OfferHistoryView,
     RegisterView,
+    UnderReviewLoadsView,
     UserPermissionViewSet,
     WarningViewSet,
     StopViewSet,
@@ -98,6 +101,15 @@ urlpatterns = [
 
     # Aceptar carga sin ofertar
     path('api/loads/<int:load_id>/assign-without-offer/', AssignLoadWithoutOfferView.as_view(), name='assign-load-without-offer'),
+
+    # Adicionales para csv y excel
+    path('api/upload-excel/', ExcelUploadView.as_view(), name='upload-excel'),
+    path('api/loads/under-review/', LoadViewSet.as_view({'get': 'under_review_loads'}), name='under-review-loads'),
+    path('api/loads/<int:load_id>/under-review/', UnderReviewLoadsView.as_view(), name='update-under-review-load'),
+
+    # Cargas cerradas 
+    path('api/closed-loads/', ClosedLoadsView.as_view(), name='closed-loads'),
+
 
 ]
 

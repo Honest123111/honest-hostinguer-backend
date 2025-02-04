@@ -116,15 +116,11 @@ class Load(models.Model):
     is_closed = models.BooleanField(default=False, help_text="Indicates if the load is closed.")
     equipment_type = models.CharField(max_length=100)
     customer = models.ForeignKey('Customer', on_delete=models.CASCADE)
-    loaded_miles = models.IntegerField()
-    total_weight = models.IntegerField()
+    loaded_miles = models.IntegerField(null=True, blank=True)
+    total_weight = models.IntegerField(null=True, blank=True)
     commodity = models.CharField(max_length=100)
-    classifications_and_certifications = models.CharField(
-        max_length=255,
-        default="A",
-        help_text="Classifications and certifications of the load"
-    )
-    offer = models.DecimalField(max_digits=10, decimal_places=2)
+    classifications_and_certifications = models.CharField(max_length=255)
+    offer = models.DecimalField(max_digits=10, decimal_places=2,default=0)
     is_offerted = models.BooleanField(default=False)
     number_of_offers = models.IntegerField(default=0)
     status = models.CharField(
@@ -186,7 +182,25 @@ class Load(models.Model):
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    honest_id = models.CharField(
+        max_length=100,
+        null=True,
+        blank=True,
+        unique=True,
+        help_text="ID proveniente de un correo de truck availability u otra fuente"
+    )
+    under_review = models.BooleanField(
+        default=False,
+        help_text="Indica si la carga está en revisión y no se muestra hasta que sea aprobada."
+    )
+    def save(self, *args, **kwargs):
+        if self.honest_id and self.honest_id.strip():  # Si honest_id no está vacío
+            existing_load = Load.objects.filter(honest_id=self.honest_id).exclude(idmmload=self.idmmload).first()
+            if existing_load:
+              raise ValidationError(f"El honest_id '{self.honest_id}' ya está en uso en otra carga.")
 
+        super().save(*args, **kwargs)
+        
     def reserve_load(self, user):
         """Reserva la carga para un usuario."""
         if self.is_reserved:
@@ -217,18 +231,7 @@ class Load(models.Model):
         return False
 
     def clean(self):
-        
-        # Validación de peso total
-        if self.total_weight <= 0:
-            raise ValidationError('Total weight must be greater than zero.')
-        if self.total_weight > 50000:  # Ejemplo de peso máximo permitido
-            raise ValidationError('Total weight exceeds the maximum allowed limit.')
-
-        # Validación de millas cargadas
-        if self.loaded_miles <= 0:
-            raise ValidationError('Loaded miles must be greater than zero.')
-
-        # Validación para asegurar que el usuario no tenga más cargas asignadas que camiones
+       
         if self.assigned_user:
             # Obtener la cantidad de cargas asignadas en estado pending o in_progress
             assigned_loads_count = Load.objects.filter(
@@ -261,7 +264,8 @@ class Load(models.Model):
     def get_active_loads():
         """Obtiene todas las cargas activas."""
         return Load.objects.filter(status__in=['pending', 'in_progress'])
-
+    
+    
 # Opciones para el tipo de acción
 ACTION_CHOICES = [
     ('live_load', 'Live Load'),
@@ -443,7 +447,8 @@ class OfferHistory(models.Model):
         ordering = ['-date']  # Ordenar por fecha descendente
         verbose_name = 'Offer History'
         verbose_name_plural = 'Offer Histories'
-        
+
+
 class Job_Type(models.Model):
     idmmjob = models.AutoField(primary_key=True)
     name = models.CharField(max_length=100)
@@ -542,8 +547,8 @@ class WarningList(models.Model):
             ("Driver legal break", 2),
             ("Rail delay", 1),
             ("USPS delay", 1),
-            ("Relay app malfunction", 3),
-            ("Relay navigation unsafe route", 3),
+            ("Honest app malfunction", 3),
+            ("Honest navigation unsafe route", 3),
             ("Pallet quality issue", 1),
             ("Site badging access issue", 1),
             ("Cell service issue", 2),

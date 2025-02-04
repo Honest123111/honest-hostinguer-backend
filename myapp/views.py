@@ -8,6 +8,9 @@ from rest_framework.permissions import AllowAny
 from django.db.models import Avg, Sum, Count
 from django.core.exceptions import ValidationError
 from rest_framework.response import Response
+from django.core.files.storage import default_storage
+from django.core.files.base import ContentFile
+from .utils import read_new_load_excel, read_spot_load_excel, read_truck_availability_excel
 from .models import CarrierUser, UserPermission, Warning
 from .models import Customer, Load, Stop, EquipmentType, OfferHistory,WarningList,Truck
 from .serializers import (
@@ -831,14 +834,6 @@ def get(self, request):
         except Exception as e:
             return Response({"error": str(e)}, status=500)
 
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework import status
-from rest_framework.permissions import IsAuthenticated
-from django.shortcuts import get_object_or_404
-from django.core.exceptions import ValidationError
-from myapp.models import OfferHistory, Load
-
 class AssignLoadWithoutOfferView(APIView):
     """Vista para asignar una carga a un usuario sin necesidad de una oferta."""
     permission_classes = [IsAuthenticated]  # Requiere autenticación
@@ -864,3 +859,57 @@ class AssignLoadWithoutOfferView(APIView):
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             return Response({"error": "Unexpected error", "details": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+class ExcelUploadView(APIView):
+    permission_classes = [IsAuthenticated]
+    def post(self, request):
+        # Suppose the frontend sends an extra field "case_type" to know which function to call
+        case_type = request.data.get('case_type')
+        excel_file = request.FILES.get('excel')
+        if not excel_file:
+            return Response({"error": "No file provided"}, status=400)
+
+        # Guardar temporalmente
+        tmp_path = default_storage.save(excel_file.name, ContentFile(excel_file.read()))
+        full_path = default_storage.path(tmp_path)
+
+        # Llamar la función
+        if case_type == "new_load":
+            read_new_load_excel(full_path)
+        elif case_type == "spot_load":
+            read_spot_load_excel(full_path)
+        elif case_type == "truck_availability":
+            read_truck_availability_excel(full_path)
+        else:
+            return Response({"error": "Unknown case_type"}, status=400)
+
+        return Response({"message": "Excel processed successfully"})
+
+class UnderReviewLoadsView(APIView):
+    """
+    API para obtener y actualizar cargas con under_review=True.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        """
+        Obtiene todas las cargas que están en revisión (under_review=True).
+        """
+        under_review_loads = Load.objects.filter(under_review=True)
+        serializer = LoadSerializer(under_review_loads, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def patch(self, request, load_id):
+        """
+        Actualiza el estado under_review de una carga específica.
+        """
+        load = get_object_or_404(Load, idmmload=load_id)
+        new_status = request.data.get("under_review")
+
+        if new_status is None:
+            return Response({"error": "Missing 'under_review' field in request."}, status=status.HTTP_400_BAD_REQUEST)
+
+        load.under_review = new_status
+        load.save()
+
+        return Response({"message": f"Load {load.idmmload} under_review updated to {new_status}"}, status=status.HTTP_200_OK)
