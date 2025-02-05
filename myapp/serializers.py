@@ -4,7 +4,7 @@ from django.contrib.auth.models import Group
 from rest_framework import serializers
 from django.apps import apps
 from .models import (
-    CarrierUser, Customer, AddressO, AddressD, Load, Role, Stop,
+    CarrierUser, Customer, AddressO, AddressD, Delay, Load, Role, Stop,
     EquipmentType, Job_Type, OfferHistory, UserPermission, Warning,WarningList,LoadProgress,Truck
 )
 
@@ -363,4 +363,10 @@ class TruckSerializer(serializers.ModelSerializer):
 class UserPermissionSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserPermission
+        fields = '__all__'
+
+
+class DelaySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Delay
         fields = '__all__'

@@ -9,6 +9,7 @@ from myapp.views import (
     AssignLoadWithoutOfferView,
     AssignRoleView,
     ClosedLoadsView,
+    DelayView,
     ExcelUploadView,
     LoadStopsView,
     OfferHistoryView,
@@ -110,6 +111,8 @@ urlpatterns = [
     # Cargas cerradas 
     path('api/closed-loads/', ClosedLoadsView.as_view(), name='closed-loads'),
 
+    # Delay en los Stops
+    path('api/stops/<int:stop_id>/delays/', DelayView.as_view(), name='delay-list-create'),
 
 ]
 

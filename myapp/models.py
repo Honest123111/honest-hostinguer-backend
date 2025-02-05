@@ -286,6 +286,7 @@ def validate_positive_quantity(value):
         raise ValidationError('Quantity must be positive.')
 
 class Stop(models.Model):
+    id = models.AutoField(primary_key=True)  # ✅ Identificador único explícito
     load = models.ForeignKey(
         'Load',
         on_delete=models.CASCADE,
@@ -301,7 +302,6 @@ class Stop(models.Model):
 
     def __str__(self):
         return f'{self.location} - {self.action_type}'
-
 
 class EquipmentType(models.Model):
     idmmequipment = models.AutoField(primary_key=True)
@@ -603,3 +603,78 @@ class UserPermission(models.Model):
 
     def __str__(self):
         return f"Permissions for {self.user.username}"
+
+from django.db import models
+from django.utils.timezone import now
+
+class Delay(models.Model):
+    # Relación con el modelo Stop
+    stop = models.ForeignKey(
+        'Stop', 
+        on_delete=models.CASCADE, 
+        related_name='delays'
+    )  # Si se elimina el Stop, también se eliminan los delays
+
+    # Opciones para estado de salida del stop
+    ON_TIME = 'on_time'
+    DELAYED = 'delayed'
+    ISSUE = 'issue'
+
+    STOP_STATUS_CHOICES = [
+        (ON_TIME, 'On Time'),
+        (DELAYED, 'Delayed'),
+        (ISSUE, 'Issue at Stop'),
+    ]
+
+    stop_status = models.CharField(
+        max_length=20,
+        choices=STOP_STATUS_CHOICES,
+        default=ON_TIME
+    )
+
+    # Opciones para el tipo de retraso
+    DELAY_REASON_CHOICES = [
+        ('traffic', 'Traffic'),
+        ('weather', 'Weather Conditions'),
+        ('mechanical', 'Mechanical Failure'),
+        ('loading', 'Loading Issues'),
+        ('unloading', 'Unloading Issues'),
+        ('route_change', 'Route Change'),
+        ('inspection', 'Inspection Delay'),
+        ('other', 'Other'),
+    ]
+
+    delay_reason = models.CharField(
+        max_length=50,
+        choices=DELAY_REASON_CHOICES,
+        null=True,
+        blank=True
+    )
+
+    # Tiempo estimado de retraso en minutos
+    estimated_delay_time = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        help_text="Estimated delay time in minutes"
+    )
+
+    # Fecha y hora estimada de llegada
+    estimated_arrival = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Estimated arrival date and time"
+    )
+
+    created_at = models.DateTimeField(default=now, editable=False)  # Fecha de registro automática
+
+    def __str__(self):
+        return f"Delay at Stop {self.stop.id}: {self.get_stop_status_display()} - {self.get_delay_reason_display()} ({self.estimated_delay_time} min, ETA: {self.estimated_arrival})"
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['stop_status']),  # Índice en el estado de salida del stop
+            models.Index(fields=['delay_reason']),  # Índice en el tipo de retraso
+        ]
+        ordering = ['-created_at']  # Ordenar por fecha descendente
+        verbose_name = "Delay"
+        verbose_name_plural = "Delays"

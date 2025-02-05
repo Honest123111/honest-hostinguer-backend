@@ -11,11 +11,12 @@ from rest_framework.response import Response
 from django.core.files.storage import default_storage
 from django.core.files.base import ContentFile
 from .utils import read_new_load_excel, read_spot_load_excel, read_truck_availability_excel
-from .models import CarrierUser, UserPermission, Warning
+from .models import CarrierUser, Delay, UserPermission, Warning
 from .models import Customer, Load, Stop, EquipmentType, OfferHistory,WarningList,Truck
 from .serializers import (
     AssignRoleSerializer,
     CustomerSerializer,
+    DelaySerializer,
     LoadSerializer,
     RegisterSerializer,
     StopSerializer,
@@ -87,7 +88,15 @@ class LoadViewSet(viewsets.ModelViewSet):
         self.perform_update(serializer)
 
         return Response(serializer.data)
-
+    
+    @action(detail=False, methods=['get'], url_path='under-review')
+    def under_review_loads(self, request):
+        """
+        Obtiene todas las cargas que están en revisión (under_review=True).
+        """
+        loads = Load.objects.filter(under_review=True)
+        serializer = self.get_serializer(loads, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
     
 class TruckViewSet(viewsets.ModelViewSet):
@@ -913,3 +922,33 @@ class UnderReviewLoadsView(APIView):
         load.save()
 
         return Response({"message": f"Load {load.idmmload} under_review updated to {new_status}"}, status=status.HTTP_200_OK)
+
+class DelayView(APIView):
+    """API para manejar los retrasos en las paradas (Stops)."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, stop_id):
+        """
+        Obtiene la lista de retrasos asociados a un Stop específico.
+        """
+        stop = get_object_or_404(Stop, id=stop_id)
+        delays = Delay.objects.filter(stop=stop)
+        serializer = DelaySerializer(delays, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def post(self, request, stop_id):
+        """
+        Registra un nuevo retraso en un Stop específico.
+        """
+        stop = get_object_or_404(Stop, id=stop_id)
+        data = request.data.copy()
+        data['stop'] = stop.id  # Asignar el Stop al retraso
+        
+        serializer = DelaySerializer(data=data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(
+                {"message": "Delay registered successfully!", "delay": serializer.data},
+                status=status.HTTP_201_CREATED
+            )
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
