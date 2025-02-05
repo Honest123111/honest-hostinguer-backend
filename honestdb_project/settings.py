@@ -153,12 +153,14 @@ STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 
-# Configuración de Celery
-CELERY_BROKER_URL = 'redis://localhost:6379/0'  # URL de Redis
-CELERY_ACCEPT_CONTENT = ['json']  # Acepta solo JSON
-CELERY_TASK_SERIALIZER = 'json'  # Serializa las tareas como JSON
-CELERY_RESULT_BACKEND = 'redis://localhost:6379/0'
+# Obtener la URL de Redis desde Heroku
+REDIS_URL = os.getenv('REDIS_URL', 'redis://localhost:6379')
 
+# Configurar Celery para usar Redis
+CELERY_BROKER_URL = REDIS_URL
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_BACKEND = REDIS_URL
 
 CELERY_BEAT_SCHEDULE = {
     'extract-emails-every-5-seconds': {
