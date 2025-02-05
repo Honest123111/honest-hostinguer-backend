@@ -153,10 +153,8 @@ STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 
-# Obtener la URL de Redis desde Heroku
-REDIS_URL = os.getenv('REDIS_URL', 'redis://localhost:6379')
+REDIS_URL = os.getenv('REDIS_URL', 'redis://localhost:6379').replace("rediss://", "redis://")
 
-# Configurar Celery para usar Redis
 CELERY_BROKER_URL = REDIS_URL
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
