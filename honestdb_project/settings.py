@@ -211,3 +211,8 @@ CSRF_TRUSTED_ORIGINS = [
     'https://honesttransportationfront.web.app/',
     # ...
 ]
+
+CORS_ALLOWED_ORIGINS = [
+    "https://honesttransportationfront.web.app",  # O la URL de tu frontend en producción
+    "http://localhost:4200",  # Solo para desarrollo
+]
