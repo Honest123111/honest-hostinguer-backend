@@ -4,7 +4,6 @@ from django.contrib.auth.models import AbstractUser, Permission
 import uuid
 from django.conf import settings
 from django.utils.timezone import now
-from django.conf import settings
 from django.core.exceptions import ValidationError
 
 
@@ -603,9 +602,6 @@ class UserPermission(models.Model):
 
     def __str__(self):
         return f"Permissions for {self.user.username}"
-
-from django.db import models
-from django.utils.timezone import now
 
 class Delay(models.Model):
     # Relación con el modelo Stop
