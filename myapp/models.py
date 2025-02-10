@@ -1,6 +1,6 @@
 from django.db import models
 from django.utils import timezone
-from django.contrib.auth.models import AbstractUser, Permission
+from django.contrib.auth.models import AbstractUser, Permission , Group
 import uuid
 from django.conf import settings
 from django.utils.timezone import now
@@ -19,6 +19,7 @@ class CarrierUser(AbstractUser):
         ('us', 'United States-based Carrier'),
         ('international', 'International Carrier'),
     ]
+
     id = models.AutoField(primary_key=True)  # Definir explícitamente el campo id
     carrier_type = models.CharField(max_length=20, choices=CARRIER_TYPES, default='us')
     first_name = models.CharField(max_length=50)
@@ -31,13 +32,13 @@ class CarrierUser(AbstractUser):
 
     # Ajustar related_name para evitar conflictos
     groups = models.ManyToManyField(
-        'auth.Group',
+        Group,
         related_name='carrieruser_groups',  # Cambiar el related_name
         blank=True,
         help_text='The groups this user belongs to.',
     )
     user_permissions = models.ManyToManyField(
-        'auth.Permission',
+        Permission,
         related_name='carrieruser_permissions',  # Cambiar el related_name
         blank=True,
         help_text='Specific permissions for this user.',
@@ -48,6 +49,22 @@ class CarrierUser(AbstractUser):
     def __str__(self):
         return f"{self.username} - {self.carrier_type}"
 
+    def update_user(self, **kwargs):
+        """
+        Método para actualizar un usuario específico.
+        Se pueden pasar los valores a actualizar como argumentos clave-valor.
+        """
+        for key, value in kwargs.items():
+            if hasattr(self, key):
+                setattr(self, key, value)
+        self.save()
+        return self
+
+    def delete_user(self):
+        """
+        Método para eliminar un usuario.
+        """
+        self.delete()
 class Customer(models.Model):
     id = models.AutoField(primary_key=True)
     name = models.CharField(max_length=100)
