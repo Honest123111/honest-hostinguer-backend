@@ -640,6 +640,7 @@ class UserPermissionViewSet(viewsets.ViewSet):
         'myapp.view_offers-master': 'offers-master',
         'myapp.view_truck-master': 'truck-master',
         'myapp.view_amazon-loads': 'amazon-loads',
+        'myapp.view_data-upload': 'data-upload',
     }
 
     def list(self, request):
