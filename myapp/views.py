@@ -623,11 +623,11 @@ class UserViewSet(viewsets.ViewSet):
 
 class UserPermissionViewSet(viewsets.ViewSet):
     """
-    ViewSet para gestionar los permisos y las vistas permitidas de los usuarios.
+    ViewSet para gestionar los permisos y vistas permitidas de los usuarios.
     """
-    permission_classes = [AllowAny]  # Permitir acceso a cualquier usuario autenticado
+    permission_classes = [IsAuthenticated]  # Solo usuarios autenticados
 
-    # Mapeo de permisos a las rutas del sidebar
+    # Mapeo de permisos a vistas del sidebar
     permission_view_map = {
         'myapp.view_dashboard': 'dashboard',
         'myapp.view_admin': 'admin',
@@ -642,123 +642,86 @@ class UserPermissionViewSet(viewsets.ViewSet):
         'myapp.view_amazon-loads': 'amazon-loads',
     }
 
-
     def list(self, request):
         """
         Devuelve los permisos de todos los usuarios o de un usuario específico si se pasa un parámetro id.
         """
-        try:
-            user_id = request.query_params.get('id', None)
+        user_id = request.query_params.get('id', None)
 
-            if user_id:
-                user = CarrierUser.objects.filter(id=user_id).first()
-                if not user:
-                    return Response({'detail': 'Usuario no encontrado'}, status=status.HTTP_404_NOT_FOUND)
+        if user_id:
+            user = CarrierUser.objects.filter(id=user_id).first()
+            if not user:
+                return Response({'detail': 'Usuario no encontrado'}, status=status.HTTP_404_NOT_FOUND)
 
-                allowed_views = self.get_allowed_views(user)
-                return Response({
-                    'id': user.id,
-                    'username': user.username,
-                    'email': user.email,
-                    'allowed_views': allowed_views,
-                }, status=status.HTTP_200_OK)
+            return Response(self._get_user_permissions(user), status=status.HTTP_200_OK)
 
-            # Obtener permisos para todos los usuarios
-            users = CarrierUser.objects.all()
-            user_permissions = []
+        # Obtener permisos para todos los usuarios
+        users = CarrierUser.objects.all()
+        user_permissions = [self._get_user_permissions(user) for user in users]
 
-            for user in users:
-                allowed_views = self.get_allowed_views(user)
-                user_permissions.append({
-                    'id': user.id,
-                    'username': user.username,
-                    'email': user.email,
-                    'allowed_views': allowed_views,
-                })
+        return Response(user_permissions, status=status.HTTP_200_OK)
 
-            return Response(user_permissions, status=status.HTTP_200_OK)
-        except Exception as e:
-            return Response({'error': f'Error interno del servidor: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-    @method_decorator(csrf_exempt, name='dispatch')
     @action(detail=False, methods=['put'], url_path='update-permissions')
     def update_permissions(self, request):
         """
         Actualiza los permisos de un usuario específico basado en el ID.
         """
-        try:
-            user_id = request.query_params.get('id')
-            if not user_id:
-                return Response({'error': 'Se requiere el parámetro id'}, status=status.HTTP_400_BAD_REQUEST)
+        user_id = request.data.get('id')
+        if not user_id:
+            return Response({'error': 'Se requiere el parámetro id'}, status=status.HTTP_400_BAD_REQUEST)
 
-            user = CarrierUser.objects.filter(id=user_id).first()
-            if not user:
-                return Response({'error': 'Usuario no encontrado'}, status=status.HTTP_404_NOT_FOUND)
+        user = CarrierUser.objects.filter(id=user_id).first()
+        if not user:
+            return Response({'error': 'Usuario no encontrado'}, status=status.HTTP_404_NOT_FOUND)
 
-            new_permissions = request.data.get('allowed_views', [])
-            user.user_permissions.clear()  # Limpiar permisos existentes
+        new_permissions = request.data.get('allowed_views', [])
+        user.user_permissions.clear()  # Limpiar permisos existentes
 
-            # Asignar permisos
-            for view_name in new_permissions:
-                permission_codename = f"view_{view_name}"
-                try:
-                    permission = Permission.objects.filter(codename=permission_codename).first()
-                    if permission:
-                        user.user_permissions.add(permission)
-                        print(f"✅ Permiso '{permission_codename}' asignado.")
-                    else:
-                        print(f"⚠️ Permiso '{permission_codename}' no encontrado.")
-                except Exception as e:
-                    print(f"⚠️ Error asignando el permiso '{permission_codename}': {e}")
+        # Asignar nuevos permisos
+        for view_name in new_permissions:
+            permission_codename = f"view_{view_name}"
+            permission = Permission.objects.filter(codename=permission_codename).first()
+            if permission:
+                user.user_permissions.add(permission)
 
-            user.save()
-            return Response({'message': 'Permisos actualizados correctamente'}, status=status.HTTP_200_OK)
-        except Exception as e:
-            return Response({'error': f'Error interno del servidor: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-        
-    def destroy(self, request, id=None):
+        user.save()
+        return Response({'message': 'Permisos actualizados correctamente'}, status=status.HTTP_200_OK)
+
+    def destroy(self, request, pk=None):
         """
         Elimina un usuario específico por su ID.
         """
-        try:
-            if not id:
-                return Response({'error': 'Se requiere el parámetro id'}, status=status.HTTP_400_BAD_REQUEST)
+        user = CarrierUser.objects.filter(id=pk).first()
+        if not user:
+            return Response({'error': 'Usuario no encontrado'}, status=status.HTTP_404_NOT_FOUND)
 
-            user = CarrierUser.objects.filter(id=id).first()
-            if not user:
-                return Response({'error': 'Usuario no encontrado'}, status=status.HTTP_404_NOT_FOUND)
+        if request.user.id == user.id:
+            return Response({'error': 'No puedes eliminar tu propia cuenta'}, status=status.HTTP_403_FORBIDDEN)
 
-            # Evitar que un usuario elimine su propia cuenta
-            if request.user.id == user.id:
-                return Response({'error': 'No puedes eliminar tu propia cuenta'}, status=status.HTTP_403_FORBIDDEN)
-
-            user.delete()
-            return Response({'message': f'Usuario {user.username} eliminado correctamente'}, status=status.HTTP_204_NO_CONTENT)
-        except Exception as e:
-            return Response({'error': f'Error interno del servidor: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        user.delete()
+        return Response({'message': f'Usuario {user.username} eliminado correctamente'}, status=status.HTTP_204_NO_CONTENT)
 
     def get_allowed_views(self, user):
         """
         Devuelve las vistas permitidas basadas en los permisos del usuario.
         """
-        allowed_views = []
-        user_permissions = user.get_all_permissions()
+        return [
+            self.permission_view_map[perm]
+            for perm in self.permission_view_map.keys()
+            if perm in user.get_all_permissions()
+        ]
 
-        for perm in self.permission_view_map.keys():
-            if perm in user_permissions:
-                allowed_views.append(self.permission_view_map[perm])
-
-        return allowed_views
-
-
-    def get_permission_from_view(self, view_name):
+    def _get_user_permissions(self, user):
         """
-        Retorna el permiso correspondiente a una vista.
+        Devuelve los detalles de un usuario con sus vistas permitidas.
         """
-        for perm, view in self.permission_view_map.items():
-            if view == view_name:
-                return Permission.objects.filter(codename=perm.split('.')[-1]).first()
-        return None
+        return {
+            'id': user.id,
+            'username': user.username,
+            'email': user.email,
+            'allowed_views': self.get_allowed_views(user),
+        }
+    
 class UpdateLoadProgressView(APIView):
     """
     API para actualizar el estado de `pending_for_approval` usando idmmload y step.
