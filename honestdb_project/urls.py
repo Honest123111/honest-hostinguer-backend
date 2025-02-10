@@ -8,6 +8,7 @@ from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from myapp.views import (
     AssignLoadWithoutOfferView,
     AssignRoleView,
+    CarrierUserViewSet,
     ClosedLoadsView,
     DelayView,
     ExcelUploadView,
@@ -44,6 +45,8 @@ router.register(r'stops', StopViewSet, basename='stops')
 router.register(r'warnings', WarningViewSet, basename='warnings')
 router.register(r'trucks', TruckViewSet, basename='trucks')
 router.register(r'users', UserViewSet, basename='users')
+router.register(r'carrier-users', CarrierUserViewSet, basename='carrieruser')
+
 
 # Definir las rutas adicionales para vistas personalizadas
 urlpatterns = [

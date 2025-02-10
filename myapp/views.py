@@ -3,7 +3,7 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from django.contrib.auth.models import Permission
 from rest_framework.views import APIView
-from rest_framework import viewsets,permission
+from rest_framework import viewsets
 from django.contrib.contenttypes.models import ContentType
 from rest_framework.permissions import AllowAny
 from django.views.decorators.csrf import csrf_exempt
