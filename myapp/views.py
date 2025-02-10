@@ -5,6 +5,8 @@ from django.contrib.auth.models import Permission
 from rest_framework.views import APIView
 from django.contrib.contenttypes.models import ContentType
 from rest_framework.permissions import AllowAny
+from django.views.decorators.csrf import csrf_exempt
+from django.utils.decorators import method_decorator
 from django.db.models import Avg, Sum, Count
 from django.core.exceptions import ValidationError
 from rest_framework.response import Response
@@ -616,8 +618,7 @@ class UserViewSet(viewsets.ViewSet):
         serializer = TruckSerializer(trucks, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
-from django.views.decorators.csrf import csrf_exempt
-from django.utils.decorators import method_decorator
+
 class UserPermissionViewSet(viewsets.ViewSet):
     """
     ViewSet para gestionar los permisos y las vistas permitidas de los usuarios.
