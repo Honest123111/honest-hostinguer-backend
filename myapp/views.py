@@ -3,6 +3,7 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from django.contrib.auth.models import Permission
 from rest_framework.views import APIView
+from rest_framework import viewsets,permission
 from django.contrib.contenttypes.models import ContentType
 from rest_framework.permissions import AllowAny
 from django.views.decorators.csrf import csrf_exempt
@@ -17,6 +18,7 @@ from .models import CarrierUser, Delay, UserPermission, Warning
 from .models import Customer, Load, Stop, EquipmentType, OfferHistory,WarningList,Truck
 from .serializers import (
     AssignRoleSerializer,
+    CarrierUserSerializer,
     CustomerSerializer,
     DelaySerializer,
     LoadSerializer,
@@ -953,3 +955,25 @@ class DelayView(APIView):
                 status=status.HTTP_201_CREATED
             )
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class CarrierUserViewSet(viewsets.ModelViewSet):
+    queryset = CarrierUser.objects.all()
+    serializer_class = CarrierUserSerializer
+    permission_classes = [IsAuthenticated]
+
+    @action(detail=True, methods=['patch'])
+    def update_user(self, request, pk=None):
+        """Endpoint para actualizar un usuario específico"""
+        user = get_object_or_404(CarrierUser, pk=pk)
+        serializer = CarrierUserSerializer(user, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=400)
+
+    @action(detail=True, methods=['delete'])
+    def delete_user(self, request, pk=None):
+        """Endpoint para eliminar un usuario"""
+        user = get_object_or_404(CarrierUser, pk=pk)
+        user.delete_user()
+        return Response({"message": "Usuario eliminado exitosamente"}, status=204)

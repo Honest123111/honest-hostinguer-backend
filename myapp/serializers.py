@@ -370,3 +370,8 @@ class DelaySerializer(serializers.ModelSerializer):
     class Meta:
         model = Delay
         fields = '__all__'
+
+class CarrierUserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CarrierUser
+        fields = '__all__'

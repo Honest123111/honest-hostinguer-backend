@@ -23,9 +23,15 @@ class RoleAdmin(admin.ModelAdmin):
 
 @admin.register(CarrierUser)
 class CarrierUserAdmin(admin.ModelAdmin):
-    list_display = ['username', 'email', 'carrier_type', 'is_active']
-    list_filter = ['carrier_type', 'is_active']
-    search_fields = ['username', 'email']
+    list_display = ('username', 'email', 'carrier_type', 'number_of_trucks', 'created_at')
+    search_fields = ('username', 'email', 'carrier_type')
+    list_filter = ('carrier_type',)
+    ordering = ('created_at',)
+
+    def delete_queryset(self, request, queryset):
+        """Método para eliminar varios usuarios desde Django Admin"""
+        for user in queryset:
+            user.delete_user()
 
 @admin.register(Warning)
 class WarningAdmin(admin.ModelAdmin):
