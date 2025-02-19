@@ -34,7 +34,13 @@ from myapp.views import (
     UserViewSet,
     UpdateLoadProgressView,
     CloseLoadView,
+    ClosedLoadsView,
+    ExcelUploadView,
+    UnderReviewLoadsView,
+    UploadLoadImageView
 )
+from django.conf import settings
+from django.conf.urls.static import static
 
 # Registrar los viewsets en el router
 router = DefaultRouter()
@@ -86,7 +92,10 @@ urlpatterns = [
     path('api/loads/<int:load_id>/add-warning/', AddWarningToLoadView.as_view(), name='add-warning-to-load'),
     path('api/loads/<int:load_id>/warnings/<int:warning_id>/', LoadWarningsView.as_view(), name='delete-load-warning'),
     path('api/warnings-list/', WarningListView.as_view(), name='warning-list'),
-
+    path('api/upload-excel/', ExcelUploadView.as_view(), name='upload-excel'),
+    path('api/loads/under-review/', LoadViewSet.as_view({'get': 'under_review_loads'}), name='under-review-loads'),
+    path('api/loads/<int:load_id>/under-review/', UnderReviewLoadsView.as_view(), name='update-under-review-load'),
+    path('api/image-load/', UploadLoadImageView.as_view(), name='upload-load'),
     # Rutas para progreso de carga
     path('api/load-progress/<int:load_id>/', RegisterProgressView.as_view(), name='register-progress'),
     path('api/load-progress-list/<int:load_id>/', LoadProgressListView.as_view(), name='load-progress-list'),

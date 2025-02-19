@@ -101,7 +101,7 @@ def get_coordinates_from_google(address):
             result = data["results"][0]
             location = result["geometry"]["location"]
             address_components = {comp["types"][0]: comp["long_name"] for comp in result["address_components"]}
-
+            print(f"{location['lat']},{location['lng']}")
             return {
                 "coordinates": f"{location['lat']},{location['lng']}",
                 "zip": address_components.get("postal_code", "Unknown"),
@@ -1228,21 +1228,23 @@ def read_new_load_excel(file_path):
             if loaded_miles is None: loaded_miles = 0
             if total_weight is None: total_weight = 0
             if offer is None: offer = 0.0
-
-            # Manejar la creación en BD
+            originCoordinates = get_coordinates(origin_address)
+            destinyCoordinates = get_coordinates(destiny_address)
+            print(originCoordinates)
+            print(destinyCoordinates)
             try:
                 # Buscamos o creamos direcciones
                 origin_obj = AddressO.objects.create(
                     zip_code=origin_zip if origin_zip else "00000",
                     address=origin_address or "Unknown",
                     state=origin_state or "Unknown",
-                    coordinates="0,0"
+                    coordinates=originCoordinates["coordinates"]
                 )
                 destiny_obj = AddressD.objects.create(
                     zip_code=destiny_zip if destiny_zip else "00000",
                     address=destiny_address or "Unknown",
                     state=destiny_state or "Unknown",
-                    coordinates="0,0"
+                    coordinates=destinyCoordinates["coordinates"]
                 )
 
                 # Obtener el customer

@@ -39,7 +39,21 @@ from .utils import send_email
 from .models import Load, LoadProgress
 from .serializers import LoadProgressSerializer
 from rest_framework.parsers import MultiPartParser, FormParser
-
+import traceback
+from .utils import read_new_load_excel, read_spot_load_excel, read_truck_availability_excel
+from django.core.files.storage import default_storage
+from django.core.files.base import ContentFile
+import pytesseract
+import cv2
+import numpy as np
+from PIL import Image
+import os
+from django.conf import settings
+import re
+import easyocr
+from myapp.utils import get_coordinates_from_google
+from myapp.utils import get_coordinates
+from myapp.models import AddressO, AddressD
 
 # Customer ViewSet
 class CustomerViewSet(viewsets.ModelViewSet):
@@ -58,7 +72,7 @@ class LoadViewSet(viewsets.ModelViewSet):
         Obtiene las cargas abiertas que cumplen con las reglas y luego las que no tienen usuario asignado.
         """
         # Filtrar cargas abiertas
-        base_queryset = Load.objects.filter(is_closed=False).prefetch_related('stops')
+        base_queryset = Load.objects.filter(is_closed=False,under_review=False).prefetch_related('stops')
 
         # 1. Cargas que cumplen las reglas existentes
         valid_loads = base_queryset.filter(status__in=['pending', 'in_progress'])
@@ -941,3 +955,365 @@ class CarrierUserViewSet(viewsets.ModelViewSet):
         user = get_object_or_404(CarrierUser, pk=pk)
         user.delete_user()
         return Response({"message": "Usuario eliminado exitosamente"}, status=204)
+
+LOCATION_MAPPING = {
+    "ONT2": "San Bernard, ONT2, CA",
+    "ONT9": "Redlands, ONT9, CA",
+    "DCA2": "Eastvale, DCA2, CA",
+    "LGB3": "Long Beach, LGB3, CA",
+    "SBD3": "San Bernard, SBD3, CA",
+    "LAS2": "North Las Vegas, LAS2, NV",
+    "FAT2": "Visalia, FAT2, CA",
+    "LAS6": "Las Vegas, LAS6, NV",
+    "FATI": "Fresno, FATI, CA",
+    "LAS1": "Henderson, LAS1, NV",
+    "KRB4": "Perris, KRB4, CA",
+    "BHM1": "Bessemer,BHM1,AL",
+    "HSV1": "Huntsville, HSV1,AL",
+    "PHX3": "Phoenix, PHX3,AZ",
+    "PHX5": "Goodyear, PHX5,AZ",
+    "PHX6": "Phoenix, PHX6,AZ",
+    "PHX7": "Phoenix, PHX7,AZ",
+    "PHX8": "Phoenix, PHX8,AZ",
+    "TUS1": "Tucson, TUS1,AZ",
+    "TUS2": "Tucson, TUS2,AZ",
+    "LIT1": "Little Rock, LIT1,AR",
+    "LIT2": "North Little Rock, LIT2,AR",
+    "BFL1": "Bakersfield, BFL1,CA",
+    "PSP1": "Beaumont, PSP1,CA",
+    "LAX5": "Buena Park, LAX5,CA",
+    "CNO5": "Chino, CNO5,CA",
+    "LGB3": "Eastvale, LGB3,CA",
+    "FAT1": "Fresno, FAT1,CA",
+    "LAX9": "Fontana, LAX9,CA",
+    "ONT1": "Jurupa Valley, ONT1,CA",
+    "PCA4": "Lockeford, PCA4,CA",
+    "SCK3": "Manteca, SCK3,CA",
+    "ONT6": "Moreno Valley, ONT6,CA",
+    "ONT8": "Moreno Valley, ONT8,CA",
+    "OAK5": "Newark, OAK5,CA",
+    "SBD6": "Ontario, SBD6,CA",
+    "OXR1": "Oxnard, OXR1,CA",
+    "ORF3": "Suffolk, ORF3,VA",
+    "PAE2": "Arlington, PAE2,WA",
+    "DSK4": "Airway Heights, DSK4,WA",
+    "SEA8": "Bellevue, SEA8,WA",
+    "BFI3": "DuPont, BFI3,WA",
+    "BFI9": "DuPont, BFI9,WA",
+    "RNT9": "Fife, RNT9,WA",
+    "BFI4": "Kent, BFI4,WA",
+    "BFI5": "Kent, BFI5,WA",
+    "BFI6": "Kent, BFI6,WA",
+    "OLM1": "Lacey, OLM1,WA",
+    "MWH1": "Pasco, MWH1,WA",
+    "PSC2": "Pasco, PSC2,WA",
+    "GEG1": "Spokane County, GEG1,WA",
+    "GEG5": "Spokane County, GEG5,WA",
+    "GEG2": "Spokane Valley, GEG2,WA",
+    "BFI8": "SeaTac, BFI8,WA",
+    "GEG3": "Spokane Valley, GEG3,WA",
+    "BFI1": "Sumner, BFI1,WA",
+    "BFI7": "Sumner, BFI7,WA",
+    "JVL1": "Beloit, JVL1,WI",
+    "DML3": "Greenville/Appleton, DML3,WI",
+    "MKE1": "Kenosha, MKE1,WI",
+    "MKE5": "Kenosha, MKE5,WI",
+    "MKE2": "Oak Creek, MKE2,WI",
+    "MKE6": "Waukegan, MKE6,IL",
+    "ATL1": "East Point, ATL1,GA",
+    "ATL2": "Stone Mountain, ATL2,GA",
+    "ATL3": "Jefferson, ATL3,GA",
+    "ATL4": "Jefferson, ATL4,GA",
+    "ATL5": "Braselton, ATL5,GA",
+    "ATL6": "East Point, ATL6,GA",
+    "ATL7": "Union City, ATL7,GA",
+    "ATL8": "Lithia Springs, ATL8,GA",
+    "ATL9": "Jefferson, ATL9,GA",
+    "BFL1": "Bakersfield,BFL1, CA",
+    "PSP1": "Beaumont, PSP1,CA",
+    "LAX5": "Buena Park, LAX5,CA",
+    "CNO5": "Chino, CNO5,CA",
+    "LAX9": "Fontana, LAX9,CA",
+    "ONT1": "Jurupa Valley, ONT1,CA",
+    "PCA4": "Lockeford, PCA4,CA",
+    "SCK3": "Manteca, ONT6,CA",
+    "ONT6": "Moreno Valley, CA",
+    "ONT8": "Moreno Valley,ONT8, CA",
+    "OAK5": "Newark,OAK5,CA",
+    "SBD6": "Ontario,SBD6,CA",
+    "OXR1": "Oxnard, OXR1,CA",
+    "XCA2": "La Puente, XCA2,CA"
+}
+
+
+def get_code_from_line(line):
+    """
+    Intenta extraer un código conocido desde la línea.
+    """
+    for code in LOCATION_MAPPING.keys():
+        if code in line:
+            return code
+    m = re.search(r"([A-Z]{3,4}\d+)", line)
+    if m:
+        return m.group(1)
+    return None
+
+def get_numeric_zip(zip_str):
+    """
+    Dado un código postal en forma de cadena, extrae solo los dígitos y lo convierte a entero.
+    Si no se encuentran dígitos, devuelve 0.
+    """
+    if zip_str is None:
+        return 0
+    digits = ''.join(filter(str.isdigit, zip_str))
+    return int(digits) if digits else 0
+
+class UploadLoadImageView(APIView):
+    permission_classes = [IsAuthenticated]
+    parser_classes = (MultiPartParser, FormParser)
+
+    def post(self, request, *args, **kwargs):
+        file = request.FILES.get('image')
+        if not file:
+            return Response({"error": "No image provided"}, status=400)
+
+        # Leer la imagen en memoria
+        np_img = np.frombuffer(file.read(), np.uint8)
+        img = cv2.imdecode(np_img, cv2.IMREAD_COLOR)
+
+        # Convertir a escala de grises y mejorar contraste
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        _, thresh = cv2.threshold(gray, 120, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+
+        # Extraer texto usando EasyOCR
+        reader = easyocr.Reader(['en', 'es'])
+        extracted_data = reader.readtext(thresh, detail=0)
+        extracted_text = "\n".join(extracted_data)
+        print(f"📜 **Extracted Text:**\n{extracted_text}")
+
+        # Extraer las cargas a partir del texto obtenido
+        loads_data, failed_lines = self.extract_loads(extracted_text)
+        if not loads_data:
+            return Response({
+                "error": "Could not extract valid data",
+                "failed_lines": failed_lines,
+                "extracted_text": extracted_text
+            }, status=400)
+
+        created_loads = []
+        errors = []
+
+        # Obtener o crear el Customer "Amazon US" usando todos los campos definidos
+        try:
+            amazon_customer = Customer.objects.get(name="Amazon US")
+        except Customer.DoesNotExist:
+            amazon_customer = Customer.objects.create(
+                name="Amazon US",
+                email="amazon@amazon.com",
+                corporation="Amazon US Corporation",
+                phone_number="0000000000",
+                dotnumber="000000"
+            )
+
+        for load_data in loads_data:
+            # Se esperan los siguientes campos: origin, destination, loaded_miles, equipment_type, action_type y offer
+            origin_code = load_data.get("origin")
+            destination_code = load_data.get("destination")
+            if not origin_code or not destination_code:
+                errors.append({
+                    "error": f"Invalid location codes extracted: {origin_code} → {destination_code}"
+                })
+                continue
+
+            try:
+                # Intentar obtener la dirección de origen y destino de la BD
+                origin_address = get_address_by_code(origin_code, address_type='origin')
+                
+                    # Si no existe, usamos el diccionario para normalizar y obtener coordenadas
+                normalized_origin = LOCATION_MAPPING.get(origin_code, origin_code)
+                origin_coords = get_coordinates(origin_code)
+                origin_address = AddressO.objects.create(
+                    zip_code=get_numeric_zip(origin_coords["zip"]),
+                    address=normalized_origin,
+                    state=origin_coords["state"],
+                    coordinates=origin_coords["coordinates"]
+                )
+
+
+                destination_address = get_address_by_code(destination_code, address_type='destination')
+               
+                normalized_destination = LOCATION_MAPPING.get(destination_code, destination_code)
+                destination_coords = get_coordinates(normalized_destination)
+                destination_address = AddressD.objects.create(
+                    zip_code=get_numeric_zip(destination_coords["zip"]),
+                    address=normalized_destination,
+                    state=destination_coords["state"],
+                    coordinates=destination_coords["coordinates"]
+                )
+                print(destination_address)
+            except Exception as e:
+                errors.append({
+                    "error": str(e),
+                    "origin": origin_code,
+                    "destination": destination_code
+                })
+                continue
+            new_load = Load.objects.create(
+            origin=origin_address,
+            destiny=destination_address,
+            loaded_miles=int(load_data.get("loaded_miles", 0)),
+            equipment_type=load_data.get("equipment_type", "Unknown"),
+            offer=float(load_data.get("offer", 0)),
+            customer=amazon_customer,
+            commodity="Default Commodity",  # Valor predeterminado
+            classifications_and_certifications="None",
+            under_review=True,
+              # Valor predeterminado
+            )
+
+            print(f"📜 **new load:**\n{new_load}")
+            try:
+                # Crear el objeto Load en la base de datos, asignándole el customer "Amazon US"
+                
+                created_loads.append({
+                    "id": new_load.idmmload,
+                    "origin": origin_code,
+                    "destination": destination_code,
+                    "loaded_miles": new_load.loaded_miles,
+                    "equipment_type": new_load.equipment_type,
+                    "offer": str(new_load.offer),
+                })
+            except Exception as e:
+                tb = traceback.format_exc()
+                print(f"Error creating load: {e}\nTraceback:\n{tb}")
+                errors.append({
+                    "error": str(e),
+                    "traceback": tb,
+                    "data": load_data
+                })
+                continue
+
+        if not created_loads:
+            return Response({
+                "error": "No valid loads created",
+                "errors": errors,
+                "failed_lines": failed_lines,
+                "extracted_text": extracted_text
+            }, status=400)
+
+        return Response({
+            "message": "Loads created successfully",
+            "loads": created_loads,
+            "errors": errors,
+            "failed_lines": failed_lines
+        }, status=201)
+
+    def extract_loads(self, text):
+        """
+        Extrae datos de cargas a partir del texto del OCR.
+        Se asume que cada bloque de carga sigue el siguiente orden:
+          1. Origen
+          2. Destino
+          3. Millas cargadas (ej.: "41.5 mi")
+          4. Oferta (ej.: "$196.58")
+          5. Hasta 4 líneas adicionales donde se busca:
+             - equipment_type (línea que contenga "Trailer" o "Reefer")
+             - action_type (línea que contenga "Live/Drop", "Drop" o "Live")
+        """
+        lines = [line.strip() for line in text.split("\n") if line.strip()]
+        loads = []
+        failed_lines = []
+        i = 0
+
+        while i < len(lines):
+            origin_code = get_code_from_line(lines[i])
+            if not origin_code:
+                i += 1
+                continue
+
+            if i + 1 >= len(lines):
+                break
+            destination_code = get_code_from_line(lines[i + 1])
+            if not destination_code:
+                destination_code = lines[i + 1]
+
+            if i + 2 >= len(lines):
+                break
+            loaded_miles_line = lines[i + 2]
+            if not re.search(r"\d+(\.\d+)?\s*mi", loaded_miles_line):
+                i += 1
+                continue
+
+            if i + 3 >= len(lines):
+                break
+            offer_line = lines[i + 3]
+
+            equipment_line = None
+            action_line = None
+            for j in range(i + 4, min(i + 8, len(lines))):
+                if not equipment_line and ("Trailer" in lines[j] or "Reefer" in lines[j]):
+                    equipment_line = lines[j]
+                elif not action_line and any(x in lines[j] for x in ["Live/Drop", "Drop", "Live"]):
+                    action_line = lines[j]
+
+            try:
+                loaded_miles_val = float(re.search(r"([\d.]+)\s*mi", loaded_miles_line).group(1))
+            except Exception:
+                loaded_miles_val = 0.0
+
+            try:
+                offer_val = float(offer_line.replace("$", "").strip())
+            except Exception:
+                offer_val = 0.0
+
+            load_data = {
+                "origin": origin_code,
+                "destination": destination_code,
+                "loaded_miles": loaded_miles_val,
+                "offer": offer_val,
+                "equipment_type": equipment_line if equipment_line else "Unknown",
+                "action_type": action_line if action_line else "Unknown",
+            }
+            loads.append(load_data)
+            i += 8
+
+        if not loads:
+            failed_lines = lines
+
+        print("✅ Datos extraídos:", loads)
+        if failed_lines:
+            print("❌ Líneas fallidas:", failed_lines)
+
+        return loads, failed_lines
+    
+def get_address_by_code(code, address_type='origin'):
+    """
+    Dado un código (por ejemplo, "ONT2"), utiliza el diccionario LOCATION_MAPPING para
+    obtener una dirección normalizada y busca (usando una comparación insensible a mayúsculas)
+    una dirección que la contenga en el campo 'address'. Si no se encuentra, la crea con
+    valores predeterminados.
+    """
+    normalized_address = LOCATION_MAPPING.get(code, code)
+    if address_type == 'origin':
+        # Buscar una dirección que contenga el valor normalizado
+        address_obj = AddressO.objects.filter(address__icontains=normalized_address).first()
+        if not address_obj:
+            # Si no existe, se crea con valores predeterminados
+            address_obj = AddressO.objects.create(
+                zip_code=0,            # Valor predeterminado; puedes intentar obtenerlo con get_coordinates
+                address=normalized_address,
+                state="Unknown",       # Valor predeterminado
+                coordinates="0,0"      # Valor predeterminado
+            )
+        return address_obj
+    elif address_type == 'destination':
+        address_obj = AddressD.objects.filter(address__icontains=normalized_address).first()
+        if not address_obj:
+            address_obj = AddressD.objects.create(
+                zip_code=0,
+                address=normalized_address,
+                state="Unknown",
+                coordinates="0,0"
+            )
+        return address_obj
+    return None
