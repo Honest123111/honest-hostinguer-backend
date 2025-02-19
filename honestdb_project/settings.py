@@ -8,6 +8,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # Seguridad
 SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'django-insecure-psks!+ztpo^r(^@upyd@+enk7%%7^*k3n8k+7jvc3v*$#i%5ad')
 DEBUG = os.getenv('DEBUG', 'True') == 'True'
+AUTH_USER_MODEL = 'myapp.CarrierUser'  # Debe apuntar a tu modelo personalizado
 
 # Hosts permitidos (cambia esto con el dominio de tu VPS si tienes uno)
 ALLOWED_HOSTS = [
