@@ -16,6 +16,8 @@ ALLOWED_HOSTS = [
     'srv728671',  # Nombre del VPS si lo usas
     '93.127.215.173',
     '93.127.215.173:8000',
+    'honest-transportation.site',
+    'www.honest-transportation.site',
 ]
 
 # Configuración de la base de datos PostgreSQL en el VPS
@@ -153,3 +155,15 @@ TEMPLATES = [
 ]
 
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+
+# 📌 Configuración de Django REST Framework
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework.authentication.SessionAuthentication',
+        'rest_framework.authentication.TokenAuthentication',
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    ],
+    'DEFAULT_PERMISSION_CLASSES': [
+    'rest_framework.permissions.AllowAny',
+]
+}
