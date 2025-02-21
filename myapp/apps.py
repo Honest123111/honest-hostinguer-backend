@@ -6,9 +6,12 @@ class MyAppConfig(AppConfig):
     name = 'myapp'
 
     def ready(self):
+        import myapp.signals  # Importar señales para asegurarse de que se activen
+
         try:
-            from .models import WarningList
-            WarningList.create_default_warnings()
+            from .models import WarningList  # Importa el modelo dentro del try para evitar errores
+            if hasattr(WarningList, 'create_default_warnings'):  # Verifica si la función existe
+                WarningList.create_default_warnings()
         except (OperationalError, ProgrammingError):
-            # La tabla aún no existe porque las migraciones no se han aplicado
+            # Ocurre si la base de datos aún no está lista o la tabla no existe
             pass

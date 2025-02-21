@@ -53,14 +53,14 @@ INSTALLED_APPS = [
 # Middleware
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'corsheaders.middleware.CorsMiddleware',  
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'corsheaders.middleware.CorsMiddleware',
-    'whitenoise.middleware.WhiteNoiseMiddleware',  # Agrega esta línea
+    'whitenoise.middleware.WhiteNoiseMiddleware',  
 ]
 
 # Configuración de CORS (Para que el frontend pueda acceder al backend)
@@ -72,6 +72,7 @@ CORS_ALLOWED_ORIGINS = [
 CSRF_TRUSTED_ORIGINS = [
     'http://localhost:4200',
     'https://honesttransportationfront.web.app',
+    'https://honest-transportation.site',  
 ]
 
 # Configuración de Redis para Celery y caché
@@ -168,3 +169,27 @@ REST_FRAMEWORK = {
     'rest_framework.permissions.AllowAny',
 ]
 }
+
+#CORS_ALLOW_ALL_ORIGINS = True  # 🚀 Permite todas las conexiones temporalmente (solo para desarrollo)
+CORS_ALLOW_CREDENTIALS = True
+
+CORS_ALLOW_METHODS = [
+    "GET",
+    "POST",
+    "PUT",
+    "PATCH",
+    "DELETE",
+    "OPTIONS",
+]
+
+CORS_ALLOW_HEADERS = [
+    "accept",
+    "authorization",
+    "content-type",
+    "origin",
+    "user-agent",
+    "x-csrftoken",
+    "x-requested-with",
+]
+
+FILE_UPLOAD_MAX_MEMORY_SIZE = 10485760  # 10MB máximo
