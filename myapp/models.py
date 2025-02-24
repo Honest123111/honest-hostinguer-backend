@@ -414,23 +414,25 @@ class OfferHistory(models.Model):
         self.save()
 
     def save(self, *args, **kwargs):
-        """Sobrescribe el método save para evitar errores con decimales y detectar cambios."""
-
+        """Sobrescribe el método save para evitar errores con decimales."""
         if self.pk:
             try:
                 original = OfferHistory.objects.get(pk=self.pk)
-
                 if (self.amount != original.amount or 
                     getattr(self, 'proposed_pickup_date', None) != getattr(original, 'proposed_pickup_date', None) or
                     getattr(self, 'proposed_delivery_date', None) != getattr(original, 'proposed_delivery_date', None)):
                     self.terms_change = True
-
             except OfferHistory.DoesNotExist:
                 pass  # Si no existe aún, no hay comparación que hacer
 
-        # ✅ Se eliminó cualquier cálculo con decimales o validaciones de oferta
-        super().save(*args, **kwargs)
+        # 🔴 Asegurar que amount y load.offer son `Decimal` antes de guardar
+        if isinstance(self.amount, float):
+            self.amount = Decimal(str(self.amount))  # Convertir `float` a `Decimal`
 
+        if isinstance(self.load.offer, float):
+            self.load.offer = Decimal(str(self.load.offer))  # Convertir `float` a `Decimal`
+
+        super().save(*args, **kwargs)
 
     def __str__(self):
         """Representación en cadena del modelo."""
