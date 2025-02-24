@@ -340,6 +340,12 @@ def validate_positive_amount(value):
     if value <= 0:
         raise ValidationError(f'{value} is not a valid amount. The amount must be positive.')
 
+from decimal import Decimal
+from django.core.exceptions import ValidationError
+from django.db import models
+from django.utils import timezone
+from django.conf import settings
+
 class OfferHistory(models.Model):
     id = models.AutoField(primary_key=True)  # Identificador único para cada oferta
 
@@ -360,9 +366,8 @@ class OfferHistory(models.Model):
     # Campos específicos de la oferta
     amount = models.DecimalField(
         max_digits=10, 
-        decimal_places=2, 
-        validators=[validate_positive_amount]
-    )  # Monto de la oferta con validación para positivos
+        decimal_places=2
+    )  # Monto de la oferta
     status = models.CharField(
         max_length=50,
         choices=[
@@ -454,7 +459,7 @@ class OfferHistory(models.Model):
         if load.is_reserved:
             raise ValidationError('This load is already reserved.')
 
-    # Asignar la carga al usuario y marcarla como reservada
+        # Asignar la carga al usuario y marcarla como reservada
         load.is_reserved = True
         load.assigned_user_id = user.id  # Usa el ID del usuario en lugar del objeto completo
         load.save()
@@ -470,7 +475,6 @@ class OfferHistory(models.Model):
         ordering = ['-date']  # Ordenar por fecha descendente
         verbose_name = 'Offer History'
         verbose_name_plural = 'Offer Histories'
-
 
 class Job_Type(models.Model):
     idmmjob = models.AutoField(primary_key=True)
