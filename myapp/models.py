@@ -421,6 +421,7 @@ class OfferHistory(models.Model):
 
     def save(self, *args, **kwargs):
         """Sobrescribe el método save para detectar cambios en los términos de la oferta."""
+
         if self.pk:
             try:
                 original = OfferHistory.objects.get(pk=self.pk)
@@ -431,10 +432,14 @@ class OfferHistory(models.Model):
                     self.terms_change = True
 
             except OfferHistory.DoesNotExist:
-                pass  # Si no existe aún, no hay comparación que hacer
+                pass
 
-        # ✅ Convertimos 1.5 en un Decimal
-        max_offer = self.load.offer * Decimal("1.5")
+        # Validar si `self.load.offer` no es None
+        if self.load.offer is None:
+            raise ValidationError('Load offer cannot be None.')
+
+        # Convertimos a Decimal antes de la multiplicación
+        max_offer = Decimal(self.load.offer) * Decimal("1.5")
         max_offer = max_offer.quantize(Decimal("0.01"))  # Redondear a 2 decimales
 
         if self.amount > max_offer:
