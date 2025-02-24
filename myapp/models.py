@@ -433,7 +433,9 @@ class OfferHistory(models.Model):
 
         # ✅ Convertimos a Decimal antes de la multiplicación para evitar conflictos
         max_offer = Decimal(load_offer) * Decimal("1.5")
-        max_offer = max_offer.quantize(Decimal("0.01"))  # Redondear a 2 decimales
+
+        # ✅ Redondeo seguro a 2 decimales
+        max_offer = max_offer.quantize(Decimal("0.01"))
 
         if self.amount > max_offer:
             raise ValidationError(f'Offer amount cannot exceed 150% of the base load offer (Max: {max_offer}).')
@@ -441,6 +443,7 @@ class OfferHistory(models.Model):
         super().save(*args, **kwargs)
 
     def __str__(self):
+        """Representación en cadena del modelo."""
         return f'Offer {self.amount} by {self.user.id} for Load {self.load.idmmload} on {self.date}'
 
     @classmethod
