@@ -434,26 +434,25 @@ class OfferHistory(models.Model):
         """Representación en cadena del modelo."""
         return f'Offer {self.amount} by {self.user.username} for Load {self.load.idmmload} on {self.date}'
 
-    # ✅ **Nuevo Método para Asignar una Carga sin Oferta**
     @classmethod
     def assign_load_without_offer(cls, load, user):
-        """
-        Asigna una carga a un usuario sin necesidad de crear una oferta.
-        
-        Parámetros:
-        - load: La instancia del modelo Load que se asignará.
-        - user: La instancia del usuario al que se le asignará la carga.
-        """
-        # Verificar si la carga ya está reservada
+    """
+    Asigna una carga a un usuario sin necesidad de crear una oferta.
+
+    Parámetros:
+    - load: La instancia del modelo Load que se asignará.
+    - user: La instancia del usuario al que se le asignará la carga.
+    """
+    # Verificar si la carga ya está reservada
         if load.is_reserved:
             raise ValidationError('This load is already reserved.')
 
-        # Asignar la carga al usuario y marcarla como reservada
+    # Asignar la carga al usuario y marcarla como reservada
         load.is_reserved = True
-        load.assigned_user = user
+        load.assigned_user_id = user.id  # Usa el ID del usuario en lugar del objeto completo
         load.save()
 
-        return f'Load {load.idmmload} has been assigned to {user.username} without an offer.'
+       return f'Load {load.idmmload} has been assigned to user ID {user.id} without an offer.'
 
     # Configuraciones meta del modelo
     class Meta:
