@@ -1,0 +1,31 @@
+# Archivos compilados de Python y cachés
+*.pyc
+*.pyo
+*.pyd
+__pycache__/
+
+# Entornos virtuales (no se deben versionar)
+venv/
+env/
+ENV/
+
+# Archivos y carpetas generados por Django o procesos externos
+# (si utilizas SQLite localmente, ignóralo; de lo contrario, ajusta según corresponda)
+db.sqlite3
+
+# Archivos de Celery y sockets
+celerybeat-schedule
+*.sock
+honesttransportation.sock
+
+# Dumps y archivos de bases de datos o redis
+db.json
+dump.rdb
+
+# Archivos generados por collectstatic (archivos estáticos compilados)
+staticfiles/
+
+# Archivos del sistema operativo
+.DS_Store
+Thumbs.db
+
