@@ -414,7 +414,7 @@ class OfferHistory(models.Model):
         self.save()
 
     def save(self, *args, **kwargs):
-        """Sobrescribe el método save para evitar conflictos con decimales y detectar cambios."""
+        """Sobrescribe el método save para evitar errores con decimales y detectar cambios."""
 
         if self.pk:
             try:
@@ -428,19 +428,9 @@ class OfferHistory(models.Model):
             except OfferHistory.DoesNotExist:
                 pass  # Si no existe aún, no hay comparación que hacer
 
-        # ✅ Asegurar que `self.load.offer` no sea None antes de operar
-        load_offer = self.load.offer if self.load.offer is not None else Decimal("0")
-
-        # ✅ Convertimos a Decimal antes de la multiplicación para evitar conflictos
-        max_offer = Decimal(load_offer) * Decimal("1.5")
-
-        # ✅ Redondeo seguro a 2 decimales
-        max_offer = max_offer.quantize(Decimal("0.01"))
-
-        if self.amount > max_offer:
-            raise ValidationError(f'Offer amount cannot exceed 150% of the base load offer (Max: {max_offer}).')
-
+        # ✅ Se eliminó cualquier cálculo con decimales o validaciones de oferta
         super().save(*args, **kwargs)
+
 
     def __str__(self):
         """Representación en cadena del modelo."""
