@@ -826,6 +826,7 @@ def get(self, request):
 
 class AssignLoadWithoutOfferView(APIView):
     """Vista para asignar una carga a un usuario sin necesidad de una oferta."""
+
     permission_classes = [IsAuthenticated]  # Requiere autenticación
 
     def post(self, request, load_id):
@@ -835,20 +836,33 @@ class AssignLoadWithoutOfferView(APIView):
         Parámetros:
         - load_id: ID de la carga a asignar (enviado en la URL).
         """
-        user = request.user  # Usuario autenticado
-
-        if not user.is_authenticated:
-            return Response({"error": "User is not authenticated"}, status=status.HTTP_403_FORBIDDEN)
-
-        load = get_object_or_404(Load, idmmload=load_id)
-
         try:
+            user = request.user  # Usuario autenticado
+
+            if not user.is_authenticated:
+                return Response({"error": "User is not authenticated"}, status=status.HTTP_403_FORBIDDEN)
+
+            # Obtener la carga y verificar si existe
+            load = get_object_or_404(Load, idmmload=load_id)
+
+            # Intentar asignar la carga
             message = OfferHistory.assign_load_without_offer(load, user)
             return Response({"message": message}, status=status.HTTP_201_CREATED)
+
+        except Load.DoesNotExist:
+            return Response({"error": "Load not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        except CarrierUser.DoesNotExist:
+            return Response({"error": "CarrierUser not found"}, status=status.HTTP_404_NOT_FOUND)
+
         except ValidationError as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
         except Exception as e:
+            import traceback
+            print(traceback.format_exc())  # Imprime el error en los logs
             return Response({"error": "Unexpected error", "details": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
 
 class ExcelUploadView(APIView):
     permission_classes = [IsAuthenticated]
