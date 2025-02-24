@@ -5,6 +5,7 @@ import uuid
 from django.conf import settings
 from django.utils.timezone import now
 from django.core.exceptions import ValidationError
+from decimal import Decimal
 
 
 class Role(models.Model):
@@ -414,26 +415,32 @@ class OfferHistory(models.Model):
         self.save()
 
     def save(self, *args, **kwargs):
-        """Sobrescribir el método save para detectar cambios en los términos de la oferta."""
+        """Sobrescribe el método save para detectar cambios en los términos de la oferta."""
         if self.pk:
-            # Comparar si los términos han cambiado
-            original = OfferHistory.objects.get(pk=self.pk)
-            if (self.amount != original.amount or 
-                self.proposed_pickup_date != original.proposed_pickup_date or
-                self.proposed_delivery_date != original.proposed_delivery_date):
-                self.terms_change = True
-        
-        # Validar que la oferta no sea mayor al 50% del valor base del load
-        max_offer = self.load.offer * 1.5
+            try:
+                original = OfferHistory.objects.get(pk=self.pk)
+
+                if (self.amount != original.amount or 
+                    getattr(self, 'proposed_pickup_date', None) != getattr(original, 'proposed_pickup_date', None) or
+                    getattr(self, 'proposed_delivery_date', None) != getattr(original, 'proposed_delivery_date', None)):
+                    self.terms_change = True
+
+            except OfferHistory.DoesNotExist:
+                pass  # Si no existe aún, no hay comparación que hacer
+
+        # Validar que la oferta no sea mayor al 150% del valor base del load
+        max_offer = self.load.offer * Decimal("1.5")
+        max_offer = max_offer.quantize(Decimal("0.01"))  # Redondear a 2 decimales
+
         if self.amount > max_offer:
             raise ValidationError(f'Offer amount cannot exceed 150% of the base load offer (Max: {max_offer}).')
-        
+
         super().save(*args, **kwargs)
 
     def __str__(self):
         """Representación en cadena del modelo."""
-        return f'Offer {self.amount} by {self.user.username} for Load {self.load.idmmload} on {self.date}'
-
+        return f'Offer {self.amount} by {self.user.id} for Load {self.load.idmmload} on {self.date}'
+    
     @classmethod
     def assign_load_without_offer(cls, load, user):
         """
