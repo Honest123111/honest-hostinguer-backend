@@ -340,12 +340,6 @@ def validate_positive_amount(value):
     if value <= 0:
         raise ValidationError(f'{value} is not a valid amount. The amount must be positive.')
 
-from decimal import Decimal
-from django.core.exceptions import ValidationError
-from django.db import models
-from django.utils import timezone
-from django.conf import settings
-
 class OfferHistory(models.Model):
     id = models.AutoField(primary_key=True)  # Identificador único para cada oferta
 
@@ -420,7 +414,7 @@ class OfferHistory(models.Model):
         self.save()
 
     def save(self, *args, **kwargs):
-        """Sobrescribe el método save para detectar cambios en los términos de la oferta."""
+        """Sobrescribe el método save para evitar conflictos con decimales y detectar cambios."""
 
         if self.pk:
             try:
@@ -432,14 +426,13 @@ class OfferHistory(models.Model):
                     self.terms_change = True
 
             except OfferHistory.DoesNotExist:
-                pass
+                pass  # Si no existe aún, no hay comparación que hacer
 
-        # Validar si `self.load.offer` no es None
-        if self.load.offer is None:
-            raise ValidationError('Load offer cannot be None.')
+        # ✅ Asegurar que `self.load.offer` no sea None antes de operar
+        load_offer = self.load.offer if self.load.offer is not None else Decimal("0")
 
-        # Convertimos a Decimal antes de la multiplicación
-        max_offer = Decimal(self.load.offer) * Decimal("1.5")
+        # ✅ Convertimos a Decimal antes de la multiplicación para evitar conflictos
+        max_offer = Decimal(load_offer) * Decimal("1.5")
         max_offer = max_offer.quantize(Decimal("0.01"))  # Redondear a 2 decimales
 
         if self.amount > max_offer:
@@ -448,9 +441,8 @@ class OfferHistory(models.Model):
         super().save(*args, **kwargs)
 
     def __str__(self):
-        """Representación en cadena del modelo."""
         return f'Offer {self.amount} by {self.user.id} for Load {self.load.idmmload} on {self.date}'
-    
+
     @classmethod
     def assign_load_without_offer(cls, load, user):
         """
