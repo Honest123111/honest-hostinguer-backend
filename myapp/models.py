@@ -428,7 +428,7 @@ class OfferHistory(models.Model):
             except OfferHistory.DoesNotExist:
                 pass  # Si no existe aún, no hay comparación que hacer
 
-        # Validar que la oferta no sea mayor al 150% del valor base del load
+        # ✅ Convertimos 1.5 en un Decimal
         max_offer = self.load.offer * Decimal("1.5")
         max_offer = max_offer.quantize(Decimal("0.01"))  # Redondear a 2 decimales
 
