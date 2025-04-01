@@ -127,8 +127,8 @@ urlpatterns = [
     # Delay en los Stops
     path('api/stops/<int:stop_id>/delays/', DelayView.as_view(), name='delay-list-create'),
 
-    # Formularios Personalizados
-    path('register/carrier-employee/', views.register_carrier_employee, name='register_carrier_employee'),
+   # Formularios Personalizados
+    path('api/register/carrier-employee/', views.register_carrier_employee, name='register_carrier_employee'),
 
 ]
 
