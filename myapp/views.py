@@ -1,4 +1,5 @@
 from email.headerregistry import Group
+from myapp.forms import CarrierEmployeeRegisterForm
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from django.contrib.auth.models import Permission
@@ -14,6 +15,7 @@ from rest_framework.response import Response
 from django.core.files.storage import default_storage
 from django.core.files.base import ContentFile
 from .utils import read_new_load_excel, read_spot_load_excel, read_truck_availability_excel
+from django.shortcuts import render, redirect
 from .models import CarrierUser, Delay, UserPermission, Warning
 from .models import Customer, Load, Stop, EquipmentType, OfferHistory,WarningList,Truck
 from .serializers import (
@@ -1331,3 +1333,15 @@ def get_address_by_code(code, address_type='origin'):
             )
         return address_obj
     return None
+
+
+
+def register_carrier_employee(request):
+    if request.method == 'POST':
+        form = CarrierEmployeeRegisterForm(request.POST)
+        if form.is_valid():
+            form.save()
+            return redirect('login')  # O al dashboard correspondiente
+    else:
+        form = CarrierEmployeeRegisterForm()
+    return render(request, 'register_carrier_employee.html', {'form': form})

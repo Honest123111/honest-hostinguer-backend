@@ -3,6 +3,7 @@ from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
 from django.views.generic.base import RedirectView
+from myapp import views
 from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from myapp.views import (
@@ -125,6 +126,9 @@ urlpatterns = [
 
     # Delay en los Stops
     path('api/stops/<int:stop_id>/delays/', DelayView.as_view(), name='delay-list-create'),
+
+    # Formularios Personalizados
+    path('register/carrier-employee/', views.register_carrier_employee, name='register_carrier_employee'),
 
 ]
 

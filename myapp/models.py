@@ -66,7 +66,31 @@ class CarrierUser(AbstractUser):
         Método para eliminar un usuario.
         """
         self.delete()
-        
+
+
+class CarrierEmployeeProfile(models.Model):
+    POSITION_CHOICES = [
+        ('employee', 'Employee'),
+        ('driver', 'Driver'),
+    ]
+
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='carrier_profile')
+    position = models.CharField(max_length=20, choices=POSITION_CHOICES)
+    creation_date = models.DateField(auto_now_add=True)
+    phone_number = models.CharField(max_length=20)
+    extension = models.CharField(max_length=10, blank=True, null=True)
+
+    # Campos del sistema
+    carrier_employee_id = models.AutoField(primary_key=True)
+    status = models.CharField(max_length=20, default='Active')
+    start_date = models.DateField(default=timezone.now)
+    termination_date = models.DateField(blank=True, null=True)
+
+    def __str__(self):
+        return f"{self.user.first_name} {self.user.last_name} - {self.position}"
+
+
+
 class Customer(models.Model):
     id = models.AutoField(primary_key=True)
     name = models.CharField(max_length=100)
