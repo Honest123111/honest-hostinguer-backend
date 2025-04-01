@@ -1337,16 +1337,26 @@ def get_address_by_code(code, address_type='origin'):
         return address_obj
     return None
 
-
 logger = logging.getLogger(__name__)
 
 class CarrierUserActionsViewSet(viewsets.ViewSet):
-
-    @action(detail=False, methods=['post'], url_path='register-carrier-employee')
+    
+    @action(detail=False, methods=['post', 'get', 'put'], url_path='register-carrier-employee')
     def register_employee(self, request):
-        logger.info("✅ Endpoint alcanzado: register_employee")
-        print("🔥 Se ejecutó register_employee")  # lo verás en `journalctl`
-        return Response({"message": "Llegaste al endpoint correctamente."}, status=200)
+        if request.method == 'POST':
+            logger.info("✅ POST: Creando empleado carrier")
+            print("🔥 POST ejecutado: register_employee")
+            return Response({"message": "Empleado carrier registrado correctamente."}, status=201)
+        
+        elif request.method == 'GET':
+            logger.info("📥 GET: Consultando formulario de registro (simulado)")
+            print("👀 GET ejecutado: register_employee")
+            return Response({"message": "Vista previa del formulario de registro de empleado carrier."})
+        
+        elif request.method == 'PUT':
+            logger.info("🔁 PUT: Actualizando datos de empleado (simulado)")
+            print("♻️ PUT ejecutado: register_employee")
+            return Response({"message": "Empleado carrier actualizado correctamente."})
 
 class DebugTestViewSet(viewsets.ViewSet):
 
