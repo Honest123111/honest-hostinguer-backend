@@ -1,6 +1,7 @@
 from email.headerregistry import Group
 from django.http import JsonResponse
 import json
+import logging
 from myapp.forms import CarrierEmployeeRegisterForm
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
@@ -1336,11 +1337,13 @@ def get_address_by_code(code, address_type='origin'):
         return address_obj
     return None
 
+
+logger = logging.getLogger(__name__)
+
 class CarrierUserActionsViewSet(viewsets.ViewSet):
+
     @action(detail=False, methods=['post'], url_path='register-carrier-employee')
     def register_employee(self, request):
-        form = CarrierEmployeeRegisterForm(request.data)
-        if form.is_valid():
-            form.save()
-            return Response({'message': 'Carrier employee registered successfully.'}, status=201)
-        return Response({'errors': form.errors}, status=400)
+        logger.info("✅ Endpoint alcanzado: register_employee")
+        print("🔥 Se ejecutó register_employee")  # lo verás en `journalctl`
+        return Response({"message": "Llegaste al endpoint correctamente."}, status=200)
