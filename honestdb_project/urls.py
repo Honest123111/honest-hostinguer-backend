@@ -10,6 +10,7 @@ from myapp.views import (
     AssignLoadWithoutOfferView,
     AssignRoleView,
     CarrierEmployeeRegisterView,
+    CarrierUserActionsViewSet,
     CarrierUserViewSet,
     ClosedLoadsView,
     DelayView,
@@ -50,6 +51,8 @@ router.register(r'warnings', WarningViewSet, basename='warnings')
 router.register(r'trucks', TruckViewSet, basename='trucks')
 router.register(r'users', UserViewSet, basename='users')
 router.register(r'carrier-users', CarrierUserViewSet, basename='carrieruser')
+router.register(r'carrier-actions', CarrierUserActionsViewSet, basename='carrier-actions')
+
 
 # Definir las rutas adicionales para vistas personalizadas
 urlpatterns = [
@@ -108,8 +111,6 @@ urlpatterns = [
     path('register/', RegisterView.as_view(), name='register'),
     path('assign-role/', AssignRoleView.as_view(), name='assign-role'),
 
-    # Formularios personalizados
-    path('api/register/carrier-employee/', CarrierEmployeeRegisterView.as_view(), name='register_carrier_employee'),
 ]
 
 # Archivos estáticos y media

@@ -1336,10 +1336,11 @@ def get_address_by_code(code, address_type='origin'):
         return address_obj
     return None
 
-class CarrierEmployeeRegisterView(APIView):
-    def post(self, request):
+class CarrierUserActionsViewSet(viewsets.ViewSet):
+    @action(detail=False, methods=['post'], url_path='register-carrier-employee')
+    def register_employee(self, request):
         form = CarrierEmployeeRegisterForm(request.data)
         if form.is_valid():
             form.save()
-            return Response({'message': 'Carrier employee registered successfully.'}, status=status.HTTP_201_CREATED)
-        return Response({'errors': form.errors}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'message': 'Carrier employee registered successfully.'}, status=201)
+        return Response({'errors': form.errors}, status=400)
