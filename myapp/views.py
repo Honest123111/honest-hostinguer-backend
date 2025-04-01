@@ -1336,18 +1336,10 @@ def get_address_by_code(code, address_type='origin'):
         return address_obj
     return None
 
-
-def register_carrier_employee(request):
-    if request.method == 'POST':
-        try:
-            data = json.loads(request.body.decode('utf-8'))
-            form = CarrierEmployeeRegisterForm(data)
-            if form.is_valid():
-                user = form.save()
-                return JsonResponse({'message': 'Carrier employee registered successfully.'}, status=201)
-            else:
-                return JsonResponse({'errors': form.errors}, status=400)
-        except Exception as e:
-            return JsonResponse({'error': str(e)}, status=500)
-    else:
-        return JsonResponse({'error': 'Only POST method is allowed'}, status=405)
+class CarrierEmployeeRegisterView(APIView):
+    def post(self, request):
+        form = CarrierEmployeeRegisterForm(request.data)
+        if form.is_valid():
+            form.save()
+            return Response({'message': 'Carrier employee registered successfully.'}, status=status.HTTP_201_CREATED)
+        return Response({'errors': form.errors}, status=status.HTTP_400_BAD_REQUEST)

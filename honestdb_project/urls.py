@@ -9,6 +9,7 @@ from myapp import views
 from myapp.views import (
     AssignLoadWithoutOfferView,
     AssignRoleView,
+    CarrierEmployeeRegisterView,
     CarrierUserViewSet,
     ClosedLoadsView,
     DelayView,
@@ -108,7 +109,7 @@ urlpatterns = [
     path('assign-role/', AssignRoleView.as_view(), name='assign-role'),
 
     # Formularios personalizados
-    path('api/register/carrier-employee/', register_carrier_employee, name='register_carrier_employee'),
+    path('api/register/carrier-employee/', CarrierEmployeeRegisterView.as_view(), name='register_carrier_employee'),
 ]
 
 # Archivos estáticos y media
