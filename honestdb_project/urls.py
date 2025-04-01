@@ -1,3 +1,6 @@
+import os
+print("🔥 CARGANDO urls.py en:", os.path.abspath(__file__))
+
 from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
@@ -39,10 +42,6 @@ from myapp.views import (
     CloseLoadView,
     UploadLoadImageView,
 )
-
-import os
-print("🧠 Este archivo urls.py está en:", os.path.abspath(__file__))
-
 
 # Registrar los viewsets en el router
 router = DefaultRouter()
