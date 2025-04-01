@@ -1348,6 +1348,13 @@ class CarrierUserActionsViewSet(viewsets.ViewSet):
     @action(detail=False, methods=['post', 'get', 'put'], url_path='register-carrier-employee')
     def register_employee(self, request):
         if request.method == 'POST':
+            email = request.data.get('email')
+            if CarrierUser.objects.filter(email=email).exists():
+                return Response(
+                    {"error": "Ya existe un usuario con este correo electrónico."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
             serializer = CarrierEmployeeSerializer(data=request.data)
             if serializer.is_valid():
                 serializer.save()
@@ -1372,6 +1379,7 @@ class CarrierUserActionsViewSet(viewsets.ViewSet):
                 serializer.save()
                 return Response(serializer.data)
             return Response(serializer.errors, status=400)
+
 class DebugTestViewSet(viewsets.ViewSet):
 
     @action(detail=False, methods=['get'], url_path='ping')
