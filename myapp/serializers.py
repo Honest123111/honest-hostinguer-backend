@@ -8,6 +8,7 @@ from .models import (
     CarrierEmployeeProfile, CarrierUser, Customer, AddressO, AddressD, Delay, Load, Role, Stop,
     EquipmentType, Job_Type, OfferHistory, UserPermission, Warning,WarningList,LoadProgress,Truck
 )
+from datetime import datetime
 
 class CustomerSerializer(serializers.ModelSerializer):
     class Meta:
@@ -377,15 +378,20 @@ class CarrierUserSerializer(serializers.ModelSerializer):
         model = CarrierUser
         fields = '__all__'
 
-
 class CarrierEmployeeSerializer(serializers.ModelSerializer):
+    # Campos del usuario (CarrierUser)
     first_name = serializers.CharField(source='user.first_name')
     last_name = serializers.CharField(source='user.last_name')
     email = serializers.EmailField(source='user.email')
+    phone = serializers.CharField(source='user.phone')
+
     password1 = serializers.CharField(write_only=True)
     password2 = serializers.CharField(write_only=True)
-    phone = serializers.CharField(source='user.phone')
+
+    # Campos adicionales
     position = serializers.ChoiceField(choices=CarrierEmployeeProfile.POSITION_CHOICES)
+    start_date = serializers.SerializerMethodField()
+    termination_date = serializers.SerializerMethodField()
 
     class Meta:
         model = CarrierEmployeeProfile
@@ -396,6 +402,12 @@ class CarrierEmployeeSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['carrier_employee_id', 'status', 'start_date']
 
+    def get_start_date(self, obj):
+        return obj.start_date.date() if isinstance(obj.start_date, datetime) else obj.start_date
+
+    def get_termination_date(self, obj):
+        return obj.termination_date.date() if isinstance(obj.termination_date, datetime) else obj.termination_date
+
     def create(self, validated_data):
         user_data = validated_data.pop('user')
         password1 = validated_data.pop('password1')
@@ -404,9 +416,13 @@ class CarrierEmployeeSerializer(serializers.ModelSerializer):
         if password1 != password2:
             raise serializers.ValidationError("Passwords do not match.")
 
+        email = user_data['email']
+        if CarrierUser.objects.filter(username=email).exists():
+            raise serializers.ValidationError("A user with this email already exists.")
+
         user = CarrierUser.objects.create(
-            username=user_data['email'],
-            email=user_data['email'],
+            username=email,
+            email=email,
             first_name=user_data['first_name'],
             last_name=user_data['last_name'],
             phone=user_data['phone'],
@@ -416,11 +432,22 @@ class CarrierEmployeeSerializer(serializers.ModelSerializer):
         return CarrierEmployeeProfile.objects.create(user=user, **validated_data)
 
     def update(self, instance, validated_data):
-        user_data = validated_data.get('user', {})
+        user_data = validated_data.pop('user', {})
+        password1 = validated_data.pop('password1', None)
+        password2 = validated_data.pop('password2', None)
+
+        # Actualizar datos del usuario
         for attr, value in user_data.items():
             setattr(instance.user, attr, value)
+
+        if password1 and password2:
+            if password1 != password2:
+                raise serializers.ValidationError("Passwords do not match.")
+            instance.user.password = make_password(password1)
+
         instance.user.save()
 
+        # Actualizar perfil del empleado
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
         instance.save()
