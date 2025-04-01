@@ -40,6 +40,10 @@ from myapp.views import (
     UploadLoadImageView,
 )
 
+import os
+print("🧠 Este archivo urls.py está en:", os.path.abspath(__file__))
+
+
 # Registrar los viewsets en el router
 router = DefaultRouter()
 router.register(r'user-permissions', UserPermissionViewSet, basename='user-permissions')
