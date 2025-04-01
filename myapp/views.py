@@ -1,4 +1,6 @@
 from email.headerregistry import Group
+from django.http import JsonResponse
+import json
 from myapp.forms import CarrierEmployeeRegisterForm
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
@@ -1335,13 +1337,17 @@ def get_address_by_code(code, address_type='origin'):
     return None
 
 
-
 def register_carrier_employee(request):
     if request.method == 'POST':
-        form = CarrierEmployeeRegisterForm(request.POST)
-        if form.is_valid():
-            form.save()
-            return redirect('login')  # O al dashboard correspondiente
+        try:
+            data = json.loads(request.body.decode('utf-8'))
+            form = CarrierEmployeeRegisterForm(data)
+            if form.is_valid():
+                user = form.save()
+                return JsonResponse({'message': 'Carrier employee registered successfully.'}, status=201)
+            else:
+                return JsonResponse({'errors': form.errors}, status=400)
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=500)
     else:
-        form = CarrierEmployeeRegisterForm()
-    return render(request, 'register_carrier_employee.html', {'form': form})
+        return JsonResponse({'error': 'Only POST method is allowed'}, status=405)
