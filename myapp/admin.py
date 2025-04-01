@@ -1,6 +1,6 @@
 from django.contrib import admin
 from .models import (
-    CarrierUser, Customer, AddressO, AddressD, Load, Role, Stop,
+    CarrierEmployeeProfile, CarrierUser, Customer, AddressO, AddressD, Load, Role, Stop,
     EquipmentType, Job_Type, OfferHistory, ProcessedEmail, Warning,WarningList,LoadProgress,Truck
 )
 
