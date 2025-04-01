@@ -37,7 +37,6 @@ from myapp.views import (
     UpdateLoadProgressView,
     CloseLoadView,
     UploadLoadImageView,
-    register_carrier_employee
 )
 
 # Registrar los viewsets en el router
