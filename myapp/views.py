@@ -1348,4 +1348,9 @@ class CarrierUserActionsViewSet(viewsets.ViewSet):
         print("🔥 Se ejecutó register_employee")  # lo verás en `journalctl`
         return Response({"message": "Llegaste al endpoint correctamente."}, status=200)
 
-print("✅ views.py ejecutado completamente 🚀")
+class DebugTestViewSet(viewsets.ViewSet):
+
+    @action(detail=False, methods=['get'], url_path='ping')
+    def ping(self, request):
+        print("✅ Endpoint /api/debug-test/ping/ fue alcanzado")
+        return Response({"message": "pong"}, status=200)

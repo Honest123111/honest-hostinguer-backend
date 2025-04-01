@@ -12,6 +12,7 @@ from myapp.views import (
     CarrierUserActionsViewSet,
     CarrierUserViewSet,
     ClosedLoadsView,
+    DebugTestViewSet,
     DelayView,
     ExcelUploadView,
     LoadStopsView,
@@ -50,6 +51,7 @@ router.register(r'trucks', TruckViewSet, basename='trucks')
 router.register(r'users', UserViewSet, basename='users')
 router.register(r'carrier-users', CarrierUserViewSet, basename='carrieruser')
 router.register(r'carrier-actions', CarrierUserActionsViewSet, basename='carrier-actions')
+router.register(r'debug-test', DebugTestViewSet, basename='debug-test')
 
 
 # Definir las rutas adicionales para vistas personalizadas
