@@ -19,10 +19,11 @@ from django.core.files.storage import default_storage
 from django.core.files.base import ContentFile
 from .utils import read_new_load_excel, read_spot_load_excel, read_truck_availability_excel
 from django.shortcuts import render, redirect
-from .models import CarrierUser, Delay, UserPermission, Warning
+from .models import CarrierEmployeeProfile, CarrierUser, Delay, UserPermission, Warning
 from .models import Customer, Load, Stop, EquipmentType, OfferHistory,WarningList,Truck
 from .serializers import (
     AssignRoleSerializer,
+    CarrierEmployeeSerializer,
     CarrierUserSerializer,
     CustomerSerializer,
     DelaySerializer,
@@ -1339,25 +1340,38 @@ def get_address_by_code(code, address_type='origin'):
 
 logger = logging.getLogger(__name__)
 
+
+logger = logging.getLogger(__name__)
+
 class CarrierUserActionsViewSet(viewsets.ViewSet):
-    
+
     @action(detail=False, methods=['post', 'get', 'put'], url_path='register-carrier-employee')
     def register_employee(self, request):
         if request.method == 'POST':
-            logger.info("✅ POST: Creando empleado carrier")
-            print("🔥 POST ejecutado: register_employee")
-            return Response({"message": "Empleado carrier registrado correctamente."}, status=201)
-        
-        elif request.method == 'GET':
-            logger.info("📥 GET: Consultando formulario de registro (simulado)")
-            print("👀 GET ejecutado: register_employee")
-            return Response({"message": "Vista previa del formulario de registro de empleado carrier."})
-        
-        elif request.method == 'PUT':
-            logger.info("🔁 PUT: Actualizando datos de empleado (simulado)")
-            print("♻️ PUT ejecutado: register_employee")
-            return Response({"message": "Empleado carrier actualizado correctamente."})
+            serializer = CarrierEmployeeSerializer(data=request.data)
+            if serializer.is_valid():
+                serializer.save()
+                logger.info("✅ Empleado creado con éxito")
+                return Response(serializer.data, status=status.HTTP_201_CREATED)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+        elif request.method == 'GET':
+            employees = CarrierEmployeeProfile.objects.select_related('user').all()
+            serializer = CarrierEmployeeSerializer(employees, many=True)
+            return Response(serializer.data)
+
+        elif request.method == 'PUT':
+            user_id = request.data.get('id')  # debe venir el ID del usuario
+            try:
+                employee = CarrierEmployeeProfile.objects.select_related('user').get(user__id=user_id)
+            except CarrierEmployeeProfile.DoesNotExist:
+                return Response({'error': 'Empleado no encontrado'}, status=404)
+
+            serializer = CarrierEmployeeSerializer(employee, data=request.data, partial=True)
+            if serializer.is_valid():
+                serializer.save()
+                return Response(serializer.data)
+            return Response(serializer.errors, status=400)
 class DebugTestViewSet(viewsets.ViewSet):
 
     @action(detail=False, methods=['get'], url_path='ping')

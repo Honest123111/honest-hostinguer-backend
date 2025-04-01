@@ -2,9 +2,10 @@ from datetime import timezone
 from django.conf import settings
 from django.contrib.auth.models import Group
 from rest_framework import serializers
+from django.contrib.auth.hashers import make_password
 from django.apps import apps
 from .models import (
-    CarrierUser, Customer, AddressO, AddressD, Delay, Load, Role, Stop,
+    CarrierEmployeeProfile, CarrierUser, Customer, AddressO, AddressD, Delay, Load, Role, Stop,
     EquipmentType, Job_Type, OfferHistory, UserPermission, Warning,WarningList,LoadProgress,Truck
 )
 
@@ -375,3 +376,53 @@ class CarrierUserSerializer(serializers.ModelSerializer):
     class Meta:
         model = CarrierUser
         fields = '__all__'
+
+
+class CarrierEmployeeSerializer(serializers.ModelSerializer):
+    first_name = serializers.CharField(source='user.first_name')
+    last_name = serializers.CharField(source='user.last_name')
+    email = serializers.EmailField(source='user.email')
+    password1 = serializers.CharField(write_only=True)
+    password2 = serializers.CharField(write_only=True)
+    phone = serializers.CharField(source='user.phone')
+    position = serializers.ChoiceField(choices=CarrierEmployeeProfile.POSITION_CHOICES)
+
+    class Meta:
+        model = CarrierEmployeeProfile
+        fields = [
+            'carrier_employee_id', 'first_name', 'last_name', 'email',
+            'password1', 'password2', 'phone', 'position',
+            'phone_number', 'extension', 'status', 'start_date', 'termination_date'
+        ]
+        read_only_fields = ['carrier_employee_id', 'status', 'start_date']
+
+    def create(self, validated_data):
+        user_data = validated_data.pop('user')
+        password1 = validated_data.pop('password1')
+        password2 = validated_data.pop('password2')
+
+        if password1 != password2:
+            raise serializers.ValidationError("Passwords do not match.")
+
+        user = CarrierUser.objects.create(
+            username=user_data['email'],
+            email=user_data['email'],
+            first_name=user_data['first_name'],
+            last_name=user_data['last_name'],
+            phone=user_data['phone'],
+            password=make_password(password1)
+        )
+
+        return CarrierEmployeeProfile.objects.create(user=user, **validated_data)
+
+    def update(self, instance, validated_data):
+        user_data = validated_data.get('user', {})
+        for attr, value in user_data.items():
+            setattr(instance.user, attr, value)
+        instance.user.save()
+
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+
+        return instance
