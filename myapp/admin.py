@@ -46,3 +46,8 @@ class LoadAdmin(admin.ModelAdmin):
     list_display = ('idmmload', 'status', 'priority', 'is_reserved')
     filter_horizontal = ('warnings',)  # Agrega un selector para advertencias
 
+@admin.register(CarrierEmployeeProfile)
+class CarrierEmployeeProfileAdmin(admin.ModelAdmin):
+    list_display = ('user', 'position', 'status', 'start_date', 'termination_date')
+    list_filter = ('position', 'status')
+    search_fields = ('user__first_name', 'user__last_name', 'user__email')
