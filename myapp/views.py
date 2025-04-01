@@ -1347,3 +1347,5 @@ class CarrierUserActionsViewSet(viewsets.ViewSet):
         logger.info("✅ Endpoint alcanzado: register_employee")
         print("🔥 Se ejecutó register_employee")  # lo verás en `journalctl`
         return Response({"message": "Llegaste al endpoint correctamente."}, status=200)
+
+print("✅ views.py ejecutado completamente 🚀")
