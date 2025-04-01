@@ -9,7 +9,6 @@ from myapp import views
 from myapp.views import (
     AssignLoadWithoutOfferView,
     AssignRoleView,
-    CarrierEmployeeRegisterView,
     CarrierUserActionsViewSet,
     CarrierUserViewSet,
     ClosedLoadsView,
