@@ -67,7 +67,6 @@ class CarrierUser(AbstractUser):
         """
         self.delete()
 
-
 class CarrierEmployeeProfile(models.Model):
     POSITION_CHOICES = [
         ('employee', 'Employee'),
@@ -90,17 +89,24 @@ class CarrierEmployeeProfile(models.Model):
         return f"{self.user.first_name} {self.user.last_name} - {self.position}"
 
 
-
-class Customer(models.Model):
-    id = models.AutoField(primary_key=True)
-    name = models.CharField(max_length=100)
-    email = models.EmailField()
-    corporation = models.CharField(max_length=100)
-    phone_number = models.CharField(max_length=20)
-    dotnumber = models.CharField(max_length=100, null=True, blank=True)
+class Corporation(models.Model):
+    name = models.CharField(max_length=100, unique=True)
+    dot_number = models.CharField(max_length=100, null=True, blank=True)  # si aplica
+    created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return self.name
+    
+class Customer(models.Model):
+    corporation = models.ForeignKey(Corporation, on_delete=models.CASCADE, related_name="contacts")
+    name = models.CharField(max_length=100)
+    email = models.EmailField()
+    phone_number = models.CharField(max_length=20)
+    position = models.CharField(max_length=100)  # Ej: Logística, Encargado de pagos, etc.
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.name} ({self.position}) - {self.corporation.name}"
 
 
 class AddressO(models.Model):

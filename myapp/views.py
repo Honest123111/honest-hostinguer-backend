@@ -19,12 +19,13 @@ from django.core.files.storage import default_storage
 from django.core.files.base import ContentFile
 from .utils import read_new_load_excel, read_spot_load_excel, read_truck_availability_excel
 from django.shortcuts import render, redirect
-from .models import CarrierEmployeeProfile, CarrierUser, Delay, UserPermission, Warning
+from .models import CarrierEmployeeProfile, CarrierUser, Corporation, Delay, UserPermission, Warning
 from .models import Customer, Load, Stop, EquipmentType, OfferHistory,WarningList,Truck
 from .serializers import (
     AssignRoleSerializer,
     CarrierEmployeeSerializer,
     CarrierUserSerializer,
+    CorporationSerializer,
     CustomerSerializer,
     DelaySerializer,
     LoadSerializer,
@@ -56,20 +57,22 @@ from PIL import Image
 import os
 from django.conf import settings
 import re
+from django.shortcuts import get_object_or_404
 import easyocr
 from myapp.utils import get_coordinates_from_google
 from myapp.utils import get_coordinates
 from myapp.models import AddressO, AddressD
 
 # Customer ViewSet
+class CorporationViewSet(viewsets.ModelViewSet):
+    queryset = Corporation.objects.all()
+    serializer_class = CorporationSerializer
+
 class CustomerViewSet(viewsets.ModelViewSet):
     queryset = Customer.objects.all()
     serializer_class = CustomerSerializer
 
-
 # Load ViewSet
-from django.shortcuts import get_object_or_404
-
 class LoadViewSet(viewsets.ModelViewSet):
     serializer_class = LoadSerializer
     permission_classes = [IsAuthenticated]

@@ -21,6 +21,7 @@ ALLOWED_HOSTS = [
     'www.honest-transportation.site',
 ]
 
+
 # Configuración de la base de datos PostgreSQL en el VPS
 DATABASES = {
     'default': {

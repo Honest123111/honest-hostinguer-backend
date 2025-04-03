@@ -15,6 +15,7 @@ from myapp.views import (
     CarrierUserActionsViewSet,
     CarrierUserViewSet,
     ClosedLoadsView,
+    CorporationViewSet,
     DebugTestViewSet,
     DelayView,
     ExcelUploadView,
@@ -47,6 +48,7 @@ from myapp.views import (
 router = DefaultRouter()
 router.register(r'user-permissions', UserPermissionViewSet, basename='user-permissions')
 router.register(r'customers', CustomerViewSet, basename='customers')
+router.register(r'corporations', CorporationViewSet, basename='corporations')  # ✅ agregado
 router.register(r'loads', LoadViewSet, basename='loads')
 router.register(r'stops', StopViewSet, basename='stops')
 router.register(r'warnings', WarningViewSet, basename='warnings')

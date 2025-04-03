@@ -5,7 +5,7 @@ from rest_framework import serializers
 from django.contrib.auth.hashers import make_password
 from django.apps import apps
 from .models import (
-    CarrierEmployeeProfile, CarrierUser, Customer, AddressO, AddressD, Delay, Load, Role, Stop,
+    CarrierEmployeeProfile, CarrierUser, Corporation, Customer, AddressO, AddressD, Delay, Load, Role, Stop,
     EquipmentType, Job_Type, OfferHistory, UserPermission, Warning,WarningList,LoadProgress,Truck
 )
 from datetime import datetime
@@ -13,7 +13,14 @@ from datetime import datetime
 class CustomerSerializer(serializers.ModelSerializer):
     class Meta:
         model = Customer
-        fields = '__all__'
+        fields = ['id', 'name', 'email', 'phone_number', 'position', 'corporation', 'created_at']
+
+class CorporationSerializer(serializers.ModelSerializer):
+    contacts = CustomerSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Corporation
+        fields = ['id', 'name', 'dot_number', 'created_at', 'contacts']
 
 class AddressOSerializer(serializers.ModelSerializer):
     class Meta:
