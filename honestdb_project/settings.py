@@ -194,3 +194,5 @@ CORS_ALLOW_HEADERS = [
 ]
 
 FILE_UPLOAD_MAX_MEMORY_SIZE = 10485760  # 10MB máximo
+DEFAULT_FROM_EMAIL = "danispc389@gmail.com"
+FRONTEND_RESET_URL = "http://localhost:4200/reset-password"  # o el link de Angular u otra interfaz

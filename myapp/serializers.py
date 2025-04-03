@@ -311,11 +311,7 @@ class AssignRoleSerializer(serializers.Serializer):
 class RegisterSerializer(serializers.ModelSerializer):
     class Meta:
         model = CarrierUser
-        fields = [
-            'username', 'email', 'password',
-            'first_name', 'last_name',
-            'phone', 'DOT_number', 'carrier_type'
-        ]
+        fields = ['email', 'password', 'first_name', 'last_name', 'phone', 'DOT_number', 'carrier_type']
         extra_kwargs = {
             'password': {'write_only': True},
         }
@@ -326,24 +322,23 @@ class RegisterSerializer(serializers.ModelSerializer):
         return value
 
     def create(self, validated_data):
-        # Crear el usuario
+        # Usa el email como username
         user = CarrierUser.objects.create_user(
-            username=validated_data['username'],
+            username=validated_data['email'],  # ✅ importante
             email=validated_data['email'],
             password=validated_data['password'],
             first_name=validated_data.get('first_name'),
             last_name=validated_data.get('last_name'),
             phone=validated_data.get('phone'),
             DOT_number=validated_data.get('DOT_number'),
-            carrier_type=validated_data.get('carrier_type')
+            carrier_type=validated_data.get('carrier_type', 'us')
         )
 
-        # ✅ Asignar SOLO el grupo "Carrier Employee"
-        carrier_employee_group, _ = Group.objects.get_or_create(name="Carrier Employee")
-        user.groups.set([carrier_employee_group])  # ⚠️ Elimina cualquier otro grupo y asigna solo este
+        # Asignar grupo específico (Carrier Employee)
+        carrier_group, _ = Group.objects.get_or_create(name="Carrier Employee")
+        user.groups.set([carrier_group])  # ✅ solo ese grupo
 
         return user
-
 
 class PasswordResetRequestSerializer(serializers.Serializer):
     email = serializers.EmailField()
