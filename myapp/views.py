@@ -29,6 +29,7 @@ from .serializers import (
     CustomerSerializer,
     DelaySerializer,
     LoadSerializer,
+    PasswordResetRequestSerializer,
     RegisterSerializer,
     StopSerializer,
     EquipmentTypeSerializer,
@@ -62,6 +63,9 @@ import easyocr
 from myapp.utils import get_coordinates_from_google
 from myapp.utils import get_coordinates
 from myapp.models import AddressO, AddressD
+from django.utils.http import urlsafe_base64_decode
+from django.contrib.auth.tokens import default_token_generator
+from rest_framework import serializers
 
 # Customer ViewSet
 class CorporationViewSet(viewsets.ModelViewSet):
@@ -124,7 +128,6 @@ class LoadViewSet(viewsets.ModelViewSet):
         loads = Load.objects.filter(under_review=True)
         serializer = self.get_serializer(loads, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
-
     
 class TruckViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
@@ -390,10 +393,57 @@ class RegisterView(APIView):
         serializer = RegisterSerializer(data=request.data)
         if serializer.is_valid():
             user = serializer.save()
-            return Response({"message": "User registered successfully"}, status=status.HTTP_201_CREATED)
-        else:
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-        
+            return Response({
+                "message": "User registered successfully",
+                "user": {
+                    "id": user.id,
+                    "email": user.email,
+                    "first_name": user.first_name,
+                    "last_name": user.last_name
+                }
+            }, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+class PasswordResetRequestView(APIView):
+    def post(self, request):
+        serializer = PasswordResetRequestSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({"message": "Password reset email sent."}, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class PasswordResetConfirmSerializer(serializers.Serializer):
+    uidb64 = serializers.CharField()
+    token = serializers.CharField()
+    new_password = serializers.CharField(write_only=True)
+
+    def validate(self, data):
+        try:
+            uid = urlsafe_base64_decode(data['uidb64']).decode()
+            user = CarrierUser.objects.get(pk=uid)
+        except (TypeError, ValueError, OverflowError, CarrierUser.DoesNotExist):
+            raise serializers.ValidationError("Invalid token or user ID.")
+
+        if not default_token_generator.check_token(user, data['token']):
+            raise serializers.ValidationError("Invalid or expired token.")
+
+        data['user'] = user
+        return data
+
+    def save(self):
+        user = self.validated_data['user']
+        user.set_password(self.validated_data['new_password'])
+        user.save()
+
+class PasswordResetConfirmView(APIView):
+    def post(self, request):
+        serializer = PasswordResetConfirmSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({"message": "Password reset successful."}, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 class WarningViewSet(viewsets.ModelViewSet):
     queryset = Warning.objects.all()
     serializer_class = WarningSerializer

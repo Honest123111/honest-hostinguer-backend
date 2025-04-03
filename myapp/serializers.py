@@ -4,6 +4,10 @@ from django.contrib.auth.models import Group
 from rest_framework import serializers
 from django.contrib.auth.hashers import make_password
 from django.apps import apps
+from django.utils.encoding import force_bytes
+from django.contrib.auth.tokens import default_token_generator
+from django.utils.http import urlsafe_base64_encode
+from django.core.mail import send_mail
 from .models import (
     CarrierEmployeeProfile, CarrierUser, Corporation, Customer, AddressO, AddressD, Delay, Load, Role, Stop,
     EquipmentType, Job_Type, OfferHistory, UserPermission, Warning,WarningList,LoadProgress,Truck
@@ -27,12 +31,10 @@ class AddressOSerializer(serializers.ModelSerializer):
         model = AddressO
         fields = '__all__'
 
-
 class AddressDSerializer(serializers.ModelSerializer):
     class Meta:
         model = AddressD
         fields = '__all__'
-
 
 class StopSerializer(serializers.ModelSerializer):
     class Meta:
@@ -309,8 +311,14 @@ class AssignRoleSerializer(serializers.Serializer):
 class RegisterSerializer(serializers.ModelSerializer):
     class Meta:
         model = CarrierUser
-        fields = ['username', 'email', 'password', 'first_name', 'last_name', 'phone', 'DOT_number', 'carrier_type']
-        extra_kwargs = {'password': {'write_only': True}}
+        fields = [
+            'username', 'email', 'password',
+            'first_name', 'last_name',
+            'phone', 'DOT_number', 'carrier_type'
+        ]
+        extra_kwargs = {
+            'password': {'write_only': True},
+        }
 
     def validate_email(self, value):
         if CarrierUser.objects.filter(email=value).exists():
@@ -318,6 +326,7 @@ class RegisterSerializer(serializers.ModelSerializer):
         return value
 
     def create(self, validated_data):
+        # Crear el usuario
         user = CarrierUser.objects.create_user(
             username=validated_data['username'],
             email=validated_data['email'],
@@ -328,9 +337,37 @@ class RegisterSerializer(serializers.ModelSerializer):
             DOT_number=validated_data.get('DOT_number'),
             carrier_type=validated_data.get('carrier_type')
         )
-        carrier_group, _ = Group.objects.get_or_create(name="Carrier")
-        user.groups.add(carrier_group)
+
+        # ✅ Asignar SOLO el grupo "Carrier Employee"
+        carrier_employee_group, _ = Group.objects.get_or_create(name="Carrier Employee")
+        user.groups.set([carrier_employee_group])  # ⚠️ Elimina cualquier otro grupo y asigna solo este
+
         return user
+
+
+class PasswordResetRequestSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+
+    def validate_email(self, value):
+        try:
+            self.user = CarrierUser.objects.get(email=value)
+        except CarrierUser.DoesNotExist:
+            raise serializers.ValidationError("No user is associated with this email.")
+        return value
+
+    def save(self):
+        user = self.user
+        uid = urlsafe_base64_encode(force_bytes(user.pk))
+        token = default_token_generator.make_token(user)
+        reset_url = f"{settings.FRONTEND_RESET_URL}/{uid}/{token}/"  # Debes definir esta URL en settings
+
+        # Enviar correo
+        send_mail(
+            subject="Reset your password",
+            message=f"Click the link to reset your password: {reset_url}",
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[user.email],
+        )
 
 
 class UserDetailSerializer(serializers.ModelSerializer):

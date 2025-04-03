@@ -21,7 +21,7 @@ class CarrierUser(AbstractUser):
         ('international', 'International Carrier'),
     ]
 
-    id = models.AutoField(primary_key=True)  # Definir explícitamente el campo id
+    id = models.AutoField(primary_key=True)
     carrier_type = models.CharField(max_length=20, choices=CARRIER_TYPES, default='us')
     first_name = models.CharField(max_length=50)
     last_name = models.CharField(max_length=50)
@@ -31,30 +31,29 @@ class CarrierUser(AbstractUser):
     license_guid = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
     number_of_trucks = models.PositiveIntegerField(default=0, help_text="Number of trucks owned by the carrier")
 
-    # Ajustar related_name para evitar conflictos
     groups = models.ManyToManyField(
         Group,
-        related_name='carrieruser_groups',  # Cambiar el related_name
+        related_name='carrieruser_groups',
         blank=True,
-        help_text='The groups this user belongs to.',
+        help_text='The single group this user belongs to.',
     )
     user_permissions = models.ManyToManyField(
         Permission,
-        related_name='carrieruser_permissions',  # Cambiar el related_name
+        related_name='carrieruser_permissions',
         blank=True,
         help_text='Specific permissions for this user.',
     )
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    USERNAME_FIELD = 'email'
+    REQUIRED_FIELDS = ['username']
+
     def __str__(self):
-        return f"{self.username} - {self.carrier_type}"
+        return f"{self.email} - {self.carrier_type}"
 
     def update_user(self, **kwargs):
-        """
-        Método para actualizar un usuario específico.
-        Se pueden pasar los valores a actualizar como argumentos clave-valor.
-        """
         for key, value in kwargs.items():
             if hasattr(self, key):
                 setattr(self, key, value)
@@ -62,10 +61,22 @@ class CarrierUser(AbstractUser):
         return self
 
     def delete_user(self):
-        """
-        Método para eliminar un usuario.
-        """
         self.delete()
+
+    def verify_password(self, raw_password):
+        return self.check_password(raw_password)
+
+    @property
+    def is_carrier_employee(self):
+        return self.groups.filter(name="Carrier Employee").exists()
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+
+        # ⚠️ Verificar si hay más de un grupo y limpiar
+        if self.groups.count() > 1:
+            first_group = self.groups.first()
+            self.groups.set([first_group])  # Reemplaza todos por el primero
 
 class CarrierEmployeeProfile(models.Model):
     POSITION_CHOICES = [

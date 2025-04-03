@@ -21,6 +21,8 @@ from myapp.views import (
     ExcelUploadView,
     LoadStopsView,
     OfferHistoryView,
+    PasswordResetConfirmView,
+    PasswordResetRequestView,
     RegisterView,
     UnderReviewLoadsView,
     UserPermissionViewSet,
@@ -115,6 +117,10 @@ urlpatterns = [
     # Registro y roles
     path('register/', RegisterView.as_view(), name='register'),
     path('assign-role/', AssignRoleView.as_view(), name='assign-role'),
+
+    #Contraseña
+    path('password-reset-request/', PasswordResetRequestView.as_view(), name='password_reset_request'),
+    path('password-reset-confirm/', PasswordResetConfirmView.as_view(), name='password_reset_confirm'),
 
 ]
 
