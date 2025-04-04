@@ -1,5 +1,6 @@
 from email.headerregistry import Group
 from django.http import JsonResponse
+from django.contrib.auth.views import PasswordResetView
 import json
 import logging
 from myapp.forms import CarrierEmployeeRegisterForm
@@ -1439,3 +1440,11 @@ class DebugTestViewSet(viewsets.ViewSet):
     def ping(self, request):
         print("✅ Endpoint /api/debug-test/ping/ fue alcanzado")
         return Response({"message": "pong"}, status=200)
+    
+class CustomPasswordResetView(PasswordResetView):
+    def form_valid(self, form):
+        self.request.session['reset_email'] = form.cleaned_data['email']
+        return super().form_valid(form)
+
+    def form_invalid(self, form):
+        return JsonResponse({'error': 'Invalid email'}, status=400)

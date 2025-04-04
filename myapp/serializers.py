@@ -345,23 +345,26 @@ class PasswordResetRequestSerializer(serializers.Serializer):
 
     def validate_email(self, value):
         try:
-            self.user = CarrierUser.objects.get(email=value)
+            user = CarrierUser.objects.get(email=value)
+            self.context['user'] = user
         except CarrierUser.DoesNotExist:
-            raise serializers.ValidationError("No user is associated with this email.")
+            raise serializers.ValidationError("User with this email does not exist.")
         return value
 
     def save(self):
-        user = self.user
+        user = self.context['user']
         uid = urlsafe_base64_encode(force_bytes(user.pk))
         token = default_token_generator.make_token(user)
-        reset_url = f"{settings.FRONTEND_RESET_URL}/{uid}/{token}/"  # Debes definir esta URL en settings
 
-        # Enviar correo
+        # URL de frontend (ajústalo según tu entorno)
+        reset_url = f"https://honest-transportation.site/reset-password/{uid}/{token}"
+
         send_mail(
-            subject="Reset your password",
-            message=f"Click the link to reset your password: {reset_url}",
+            subject="Password Reset",
+            message=f"Click the link below to reset your password:\n{reset_url}",
             from_email=settings.DEFAULT_FROM_EMAIL,
             recipient_list=[user.email],
+            fail_silently=False,
         )
 
 
