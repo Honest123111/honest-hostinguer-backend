@@ -28,6 +28,7 @@ from .serializers import (
     CarrierEmployeeSerializer,
     CarrierUserSerializer,
     CorporationSerializer,
+    CustomTokenObtainPairSerializer,
     CustomerSerializer,
     DelaySerializer,
     LoadSerializer,
@@ -1444,26 +1445,6 @@ class DebugTestViewSet(viewsets.ViewSet):
         print("✅ Endpoint /api/debug-test/ping/ fue alcanzado")
         return Response({"message": "pong"}, status=200)
 
-class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
-    @classmethod
-    def get_token(cls, user):
-        token = super().get_token(user)
-        token['email'] = user.email
-        return token
-
-    def validate(self, attrs):
-        # Usa email como login
-        username = attrs.get("email")
-        password = attrs.get("password")
-        user = CarrierUser.objects.filter(email=username).first()
-
-        if user and user.check_password(password):
-            data = super().validate({
-                "username": user.username,
-                "password": password
-            })
-            return data
-        raise serializers.ValidationError("Invalid email or password")
 
 class CustomTokenObtainPairView(TokenObtainPairView):
     serializer_class = CustomTokenObtainPairSerializer

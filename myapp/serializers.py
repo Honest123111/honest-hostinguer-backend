@@ -8,6 +8,8 @@ from django.utils.encoding import force_bytes
 from django.contrib.auth.tokens import default_token_generator
 from django.utils.http import urlsafe_base64_encode
 from django.core.mail import send_mail
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+from rest_framework import serializers
 from .models import (
     CarrierEmployeeProfile, CarrierUser, Corporation, Customer, AddressO, AddressD, Delay, Load, Role, Stop,
     EquipmentType, Job_Type, OfferHistory, UserPermission, Warning,WarningList,LoadProgress,Truck
@@ -495,3 +497,20 @@ class CarrierEmployeeSerializer(serializers.ModelSerializer):
         instance.save()
 
         return instance
+
+class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
+    username_field = CarrierUser.EMAIL_FIELD  # Usa email como username
+
+    @classmethod
+    def get_token(cls, user):
+        token = super().get_token(user)
+        # Agrega info adicional al token si lo deseas
+        token['email'] = user.email
+        token['first_name'] = user.first_name
+        token['last_name'] = user.last_name
+        return token
+
+    def validate(self, attrs):
+        # Este paso es importante para asegurar que `email` se use como campo
+        attrs['username'] = attrs.get('email')
+        return super().validate(attrs)
