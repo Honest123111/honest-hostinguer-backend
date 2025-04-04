@@ -194,5 +194,15 @@ CORS_ALLOW_HEADERS = [
 ]
 
 FILE_UPLOAD_MAX_MEMORY_SIZE = 10485760  # 10MB máximo
-DEFAULT_FROM_EMAIL = "danispc389@gmail.com"
-FRONTEND_RESET_URL = "http://localhost:4200/reset-password"  # o el link de Angular u otra interfaz
+
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+
+EMAIL_HOST = "smtp.gmail.com"
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+
+EMAIL_HOST_USER = "aventurastorefigures@gmail.com"
+EMAIL_HOST_PASSWORD = "jnwz asgl hwae mcdi"
+
+DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
+FRONTEND_RESET_URL = "http://localhost:4200/reset-password"  # o tu URL real
