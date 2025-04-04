@@ -1,8 +1,9 @@
 from email.headerregistry import Group
 from django.http import JsonResponse
-from django.contrib.auth.views import PasswordResetView
 import json
 import logging
+from rest_framework_simplejwt.views import TokenObtainPairView
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from myapp.forms import CarrierEmployeeRegisterForm
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
@@ -664,7 +665,9 @@ class LoadProgressListView(APIView):
     def get(self, request, load_id):
         progresses = LoadProgress.objects.filter(idmmload=load_id)
         serializer = LoadProgressSerializer(progresses, many=True, context={'request': request})
-        return Response(serializer.data, status=status.HTTP_200_OK)        
+        return Response(serializer.data, status=status.HTTP_200_OK)    
+    
+        
 from django.contrib.auth import get_user_model
 User = get_user_model()
 
@@ -1440,11 +1443,27 @@ class DebugTestViewSet(viewsets.ViewSet):
     def ping(self, request):
         print("✅ Endpoint /api/debug-test/ping/ fue alcanzado")
         return Response({"message": "pong"}, status=200)
-    
-class CustomPasswordResetView(PasswordResetView):
-    def form_valid(self, form):
-        self.request.session['reset_email'] = form.cleaned_data['email']
-        return super().form_valid(form)
 
-    def form_invalid(self, form):
-        return JsonResponse({'error': 'Invalid email'}, status=400)
+class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
+    @classmethod
+    def get_token(cls, user):
+        token = super().get_token(user)
+        token['email'] = user.email
+        return token
+
+    def validate(self, attrs):
+        # Usa email como login
+        username = attrs.get("email")
+        password = attrs.get("password")
+        user = CarrierUser.objects.filter(email=username).first()
+
+        if user and user.check_password(password):
+            data = super().validate({
+                "username": user.username,
+                "password": password
+            })
+            return data
+        raise serializers.ValidationError("Invalid email or password")
+
+class CustomTokenObtainPairView(TokenObtainPairView):
+    serializer_class = CustomTokenObtainPairSerializer

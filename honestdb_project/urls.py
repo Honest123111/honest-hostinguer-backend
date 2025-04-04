@@ -7,7 +7,7 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.views.generic.base import RedirectView
 from rest_framework.routers import DefaultRouter
-from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
+from rest_framework_simplejwt.views import TokenRefreshView
 from myapp import views
 from myapp.views import (
     AssignLoadWithoutOfferView,
@@ -16,6 +16,7 @@ from myapp.views import (
     CarrierUserViewSet,
     ClosedLoadsView,
     CorporationViewSet,
+    CustomTokenObtainPairView,
     DebugTestViewSet,
     DelayView,
     ExcelUploadView,
@@ -111,7 +112,7 @@ urlpatterns = [
     path('api/user-load-statistics/', UserLoadStatistics.as_view(), name='user-load-statistics'),
 
     # Autenticación
-    path('token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
+    path('token/', CustomTokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
 
     # Registro y roles
