@@ -2,13 +2,12 @@ import os
 print("🔥 CARGANDO urls.py en:", os.path.abspath(__file__))
 
 from django.contrib import admin
-from django.urls import path, include
+from django.urls import path, include, re_path
 from django.conf import settings
 from django.conf.urls.static import static
 from django.views.generic.base import RedirectView
 from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import TokenRefreshView
-from myapp import views
 from myapp.views import (
     AssignLoadWithoutOfferView,
     AssignRoleView,
@@ -47,11 +46,11 @@ from myapp.views import (
     UploadLoadImageView,
 )
 
-# Registrar los viewsets en el router
+# Routers para ViewSets
 router = DefaultRouter()
 router.register(r'user-permissions', UserPermissionViewSet, basename='user-permissions')
 router.register(r'customers', CustomerViewSet, basename='customers')
-router.register(r'corporations', CorporationViewSet, basename='corporations')  # ✅ agregado
+router.register(r'corporations', CorporationViewSet, basename='corporations')
 router.register(r'loads', LoadViewSet, basename='loads')
 router.register(r'stops', StopViewSet, basename='stops')
 router.register(r'warnings', WarningViewSet, basename='warnings')
@@ -61,14 +60,13 @@ router.register(r'carrier-users', CarrierUserViewSet, basename='carrieruser')
 router.register(r'carrier-actions', CarrierUserActionsViewSet, basename='carrier-actions')
 router.register(r'debug-test', DebugTestViewSet, basename='debug-test')
 
-
-# Definir las rutas adicionales para vistas personalizadas
+# URL patterns
 urlpatterns = [
     path('', RedirectView.as_view(url='/admin/', permanent=True)),
     path('admin/', admin.site.urls),
     path('api/', include(router.urls)),
 
-    # Equipment Types
+    # Equipment
     path('api/equipment-types/', EquipmentTypeView.as_view(), name='equipment-types-list-create'),
     path('api/equipment-types/<int:pk>/', EquipmentTypeView.as_view(), name='equipment-types-detail'),
 
@@ -79,10 +77,10 @@ urlpatterns = [
     path('api/stops/<int:stop_id>/delays/', DelayView.as_view(), name='delay-list-create'),
 
     # Offers
-    path('api/loads/<int:load_id>/offers/', OfferHistoryView.as_view(), name='load-offers'),
-    path('api/loads/offers/<int:offer_id>/', OfferHistoryView.as_view(), name='offer-detail'),
-    path('api/loads/offers/<int:offer_id>/<str:action>/', OfferHistoryView.as_view(), name='offer-action'),
-    path('api/loads/offers/', OfferHistoryView.as_view(), name='all-offers'),
+    path('api/loads/<int:load_id>/offers/', OfferHistoryView.as_view(), name='load-offers'),  # GET, POST
+    path('api/loads/offers/', OfferHistoryView.as_view(), name='all-offers'),  # GET all
+    path('api/loads/offers/<int:offer_id>/', OfferHistoryView.as_view(), name='offer-detail'),  # PUT, DELETE
+    path('api/loads/offers/<int:offer_id>/<str:action>/', OfferHistoryView.as_view(), name='offer-action'),  # PATCH (accept/reject)
 
     # Warnings
     path('api/loads/<int:load_id>/warnings/', LoadWarningsView.as_view(), name='load-warnings'),
@@ -90,7 +88,7 @@ urlpatterns = [
     path('api/loads/<int:load_id>/warnings/<int:warning_id>/', LoadWarningsView.as_view(), name='delete-load-warning'),
     path('api/warnings-list/', WarningListView.as_view(), name='warning-list'),
 
-    # Loads y Progreso
+    # Loads & Progress
     path('api/loads/reserved/', ReservedLoadsView.as_view(), name='reserved-loads'),
     path('api/assigned-loads/', UserAssignedLoadsView.as_view(), name='assigned-loads'),
     path('api/loads/under-review/', LoadViewSet.as_view({'get': 'under_review_loads'}), name='under-review-loads'),
@@ -98,33 +96,31 @@ urlpatterns = [
     path('api/loads/<int:load_id>/assign-without-offer/', AssignLoadWithoutOfferView.as_view(), name='assign-load-without-offer'),
     path('api/loads/<int:load_id>/close/', CloseLoadView.as_view(), name='close_load'),
 
-    # Progreso de Carga
     path('api/load-progress/<int:load_id>/', RegisterProgressView.as_view(), name='register-progress'),
     path('api/load-progress-list/<int:load_id>/', LoadProgressListView.as_view(), name='load-progress-list'),
     path('api/loads/load-progress/<int:load_id>/<str:step>/update/', UpdateLoadProgressView.as_view(), name='update-load-progress'),
 
-    # Archivos e imágenes
+    # Files & Media
     path('api/upload-excel/', ExcelUploadView.as_view(), name='upload-excel'),
     path('api/image-load/', UploadLoadImageView.as_view(), name='upload-load'),
     path('api/closed-loads/', ClosedLoadsView.as_view(), name='closed-loads'),
 
-    # Estadísticas
+    # Stats
     path('api/user-load-statistics/', UserLoadStatistics.as_view(), name='user-load-statistics'),
 
-    # Autenticación
+    # Auth
     path('token/', CustomTokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
 
-    # Registro y roles
+    # Register & Permissions
     path('register/', RegisterView.as_view(), name='register'),
     path('assign-role/', AssignRoleView.as_view(), name='assign-role'),
 
-    #Contraseña
+    # Password Reset
     path('password-reset-request/', PasswordResetRequestView.as_view(), name='password_reset_request'),
     path('password-reset-confirm/', PasswordResetConfirmView.as_view(), name='password_reset_confirm'),
-
 ]
 
-# Archivos estáticos y media
+# Static & Media
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 urlpatterns += static('/progress_pictures/', document_root=settings.BASE_DIR / 'progress_pictures')

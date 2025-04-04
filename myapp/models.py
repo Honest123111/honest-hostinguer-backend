@@ -382,27 +382,24 @@ def validate_positive_amount(value):
         raise ValidationError(f'{value} is not a valid amount. The amount must be positive.')
 
 class OfferHistory(models.Model):
-    id = models.AutoField(primary_key=True)  # Identificador único para cada oferta
+    id = models.AutoField(primary_key=True)
 
     # Relación con el modelo Load
     load = models.ForeignKey(
         'Load',
         on_delete=models.CASCADE,
         related_name='offer_history'
-    )  # Si se elimina la carga, también se eliminan las ofertas
+    )
 
-    # Relación con el modelo de usuario
+    # Relación con el usuario autenticado
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,  # Si el usuario es eliminado, las ofertas asociadas también se eliminan
+        on_delete=models.CASCADE,
         related_name='offers'
     )
 
     # Campos específicos de la oferta
-    amount = models.DecimalField(
-        max_digits=10, 
-        decimal_places=2
-    )  # Monto de la oferta
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
     status = models.CharField(
         max_length=50,
         choices=[
@@ -410,41 +407,35 @@ class OfferHistory(models.Model):
             ('accepted', 'Accepted'),
             ('rejected', 'Rejected'),
         ],
-        default='pending',  # Estado inicial
-    )  # Estado de la oferta
-    date = models.DateTimeField(default=timezone.now)  # Fecha y hora de la oferta
-    terms_change = models.BooleanField(default=False)  # Indicador de cambio en los términos
+        default='pending',
+    )
+    date = models.DateTimeField(default=timezone.now)
+    terms_change = models.BooleanField(default=False)
 
-    # Fechas y horas propuestas para la operación
-    proposed_pickup_date = models.DateField(null=True, blank=True)  # Fecha propuesta para recogida
-    proposed_pickup_time = models.TimeField(null=True, blank=True)  # Hora propuesta para recogida
-    proposed_delivery_date = models.DateField(null=True, blank=True)  # Fecha propuesta para entrega
-    proposed_delivery_time = models.TimeField(null=True, blank=True)  # Hora propuesta para entrega
+    # Fechas y horas propuestas
+    proposed_pickup_date = models.DateField(null=True, blank=True)
+    proposed_pickup_time = models.TimeField(null=True, blank=True)
+    proposed_delivery_date = models.DateField(null=True, blank=True)
+    proposed_delivery_time = models.TimeField(null=True, blank=True)
 
-    # Métodos del modelo
     def accept_offer(self):
         """Aceptar la oferta y asignar la carga al usuario."""
         if self.status != 'pending':
             raise ValidationError('Only pending offers can be accepted.')
 
-        # Asegurarse de que el monto de la oferta no sea inferior a los anteriores
         previous_accepted_offers = self.load.offer_history.filter(status='accepted')
         if previous_accepted_offers.exists() and self.amount < previous_accepted_offers.latest('date').amount:
             raise ValidationError('Offer amount cannot be lower than previously accepted offers.')
 
-        # Reconsultar la carga para asegurar que no ha sido reservada en otro proceso
-        load = self.load
-        if load.is_reserved:
+        if self.load.is_reserved:
             raise ValidationError('This load is already reserved.')
 
-        # Cambiar el estado de la oferta
         self.status = 'accepted'
         self.save()
 
-        # Asignar la carga al usuario
-        load.is_reserved = True
-        load.assigned_user = self.user
-        load.save()
+        self.load.is_reserved = True
+        self.load.assigned_user = self.user
+        self.load.save()
 
     def reject_offer(self):
         """Rechazar la oferta."""
@@ -455,60 +446,52 @@ class OfferHistory(models.Model):
         self.save()
 
     def save(self, *args, **kwargs):
-        """Sobrescribe el método save para evitar errores con decimales."""
+        """Sobrescribe el método save para validar cambios y decimales."""
         if self.pk:
             try:
                 original = OfferHistory.objects.get(pk=self.pk)
-                if (self.amount != original.amount or 
+                if (
+                    self.amount != original.amount or
                     getattr(self, 'proposed_pickup_date', None) != getattr(original, 'proposed_pickup_date', None) or
-                    getattr(self, 'proposed_delivery_date', None) != getattr(original, 'proposed_delivery_date', None)):
+                    getattr(self, 'proposed_delivery_date', None) != getattr(original, 'proposed_delivery_date', None)
+                ):
                     self.terms_change = True
             except OfferHistory.DoesNotExist:
-                pass  # Si no existe aún, no hay comparación que hacer
+                pass
 
-        # 🔴 Asegurar que amount y load.offer son `Decimal` antes de guardar
         if isinstance(self.amount, float):
-            self.amount = Decimal(str(self.amount))  # Convertir `float` a `Decimal`
+            self.amount = Decimal(str(self.amount))
 
-        if isinstance(self.load.offer, float):
-            self.load.offer = Decimal(str(self.load.offer))  # Convertir `float` a `Decimal`
+        # ⚠️ Solo ejecutar esto si 'offer' realmente existe en el modelo Load
+        if hasattr(self.load, 'offer') and isinstance(self.load.offer, float):
+            self.load.offer = Decimal(str(self.load.offer))
 
         super().save(*args, **kwargs)
 
     def __str__(self):
-        """Representación en cadena del modelo."""
-        return f'Offer {self.amount} by {self.user.id} for Load {self.load.idmmload} on {self.date}'
+        return f'Offer {self.amount} by User {self.user.id} for Load {self.load.id} on {self.date}'
 
     @classmethod
     def assign_load_without_offer(cls, load, user):
-        """
-        Asigna una carga a un usuario sin necesidad de crear una oferta.
-
-        Parámetros:
-        - load: La instancia del modelo Load que se asignará.
-        - user: La instancia del usuario al que se le asignará la carga.
-        """
-        # Verificar si la carga ya está reservada
+        """Asigna una carga a un usuario sin crear una oferta."""
         if load.is_reserved:
             raise ValidationError('This load is already reserved.')
 
-        # Asignar la carga al usuario y marcarla como reservada
         load.is_reserved = True
-        load.assigned_user_id = user.id  # Usa el ID del usuario en lugar del objeto completo
+        load.assigned_user = user
         load.save()
 
-        return f'Load {load.idmmload} has been assigned to user ID {user.id} without an offer.'
+        return f'Load {load.id} has been assigned to user ID {user.id} without an offer.'
 
-    # Configuraciones meta del modelo
     class Meta:
         indexes = [
-            models.Index(fields=['date']),  # Índice para la fecha
-            models.Index(fields=['status']),  # Índice para el estado
+            models.Index(fields=['date']),
+            models.Index(fields=['status']),
         ]
-        ordering = ['-date']  # Ordenar por fecha descendente
+        ordering = ['-date']
         verbose_name = 'Offer History'
         verbose_name_plural = 'Offer Histories'
-
+        
 class Job_Type(models.Model):
     idmmjob = models.AutoField(primary_key=True)
     name = models.CharField(max_length=100)

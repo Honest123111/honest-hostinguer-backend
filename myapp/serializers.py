@@ -206,68 +206,53 @@ class JobTypeSerializer(serializers.ModelSerializer):
 
 
 class OfferHistorySerializer(serializers.ModelSerializer):
+    user = serializers.StringRelatedField()  # Devuelve str(user)
 
-    user = serializers.StringRelatedField()  # Esto devuelve el `__str__` del usuario (normalmente, el `username`)
-
-    # Añadimos la validación personalizada para el monto
     def validate_amount(self, value):
         if value <= 0:
             raise serializers.ValidationError(f'{value} is not a valid amount. The amount must be positive.')
         return value
 
-    # Validación adicional para evitar ofertas de monto inferior a las anteriores
     def validate(self, data):
         load = data.get('load')
         amount = data.get('amount')
 
-        # Verifica que el monto de la nueva oferta no sea inferior al de ofertas previamente aceptadas
-        previous_accepted_offers = load.offer_history.filter(status='accepted')
-        if previous_accepted_offers.exists() and amount < previous_accepted_offers.latest('date').amount:
-            raise serializers.ValidationError('Offer amount cannot be lower than previously accepted offers.')
-        
+        if load and amount:
+            previous_accepted_offers = load.offer_history.filter(status='accepted')
+            if previous_accepted_offers.exists():
+                last_accepted = previous_accepted_offers.latest('date')
+                if amount < last_accepted.amount:
+                    raise serializers.ValidationError(
+                        'Offer amount cannot be lower than previously accepted offers.'
+                    )
+
         return data
 
-    class Meta:
-        model = OfferHistory
-        fields = [
-            'id', 'load', 'user', 'amount', 'status', 'date', 'terms_change',
-            'proposed_pickup_date', 'proposed_pickup_time', 'proposed_delivery_date', 'proposed_delivery_time'
-        ]
-        read_only_fields = ['id', 'status', 'date', 'terms_change']
-
-
-    def get_user(self, obj):
-        return obj.user.username  # Devuelve el username directamente
-
     def create(self, validated_data):
-        """
-        Sobrescribimos el método create para manejar la lógica adicional si es necesario,
-        como la creación de una oferta que debe ser validada antes.
-        """
-        # Podemos implementar lógica adicional aquí si es necesario
+        # Puedes agregar lógica extra aquí si necesitas
         return super().create(validated_data)
 
     def update(self, instance, validated_data):
-        """
-        Sobrescribimos el método update para manejar cambios en los términos de la oferta.
-        """
-        # Revisar si la oferta tiene un cambio en los términos
+        # Actualizar campos relevantes
         instance.amount = validated_data.get('amount', instance.amount)
         instance.proposed_pickup_date = validated_data.get('proposed_pickup_date', instance.proposed_pickup_date)
         instance.proposed_pickup_time = validated_data.get('proposed_pickup_time', instance.proposed_pickup_time)
         instance.proposed_delivery_date = validated_data.get('proposed_delivery_date', instance.proposed_delivery_date)
         instance.proposed_delivery_time = validated_data.get('proposed_delivery_time', instance.proposed_delivery_time)
 
-        # Marcar si hubo un cambio en los términos
+        # Si alguno de los campos relevantes cambió, marcar términos modificados
         instance.terms_change = True
-
-        # Llamamos al método save para guardar los cambios
         instance.save()
         return instance
+
     class Meta:
         model = OfferHistory
-        fields = '__all__'
-
+        fields = [
+            'id', 'load', 'user', 'amount', 'status', 'date', 'terms_change',
+            'proposed_pickup_date', 'proposed_pickup_time',
+            'proposed_delivery_date', 'proposed_delivery_time'
+        ]
+        read_only_fields = ['id', 'status', 'date', 'terms_change']
 
 class WarningSerializer(serializers.ModelSerializer):
     class Meta:
