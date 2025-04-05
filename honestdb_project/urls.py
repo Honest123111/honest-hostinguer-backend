@@ -2,7 +2,7 @@ import os
 print("🔥 CARGANDO urls.py en:", os.path.abspath(__file__))
 
 from django.contrib import admin
-from django.urls import path, include, re_path
+from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
 from django.views.generic.base import RedirectView
@@ -20,7 +20,6 @@ from myapp.views import (
     DelayView,
     ExcelUploadView,
     LoadStopsView,
-    OfferHistoryView,
     PasswordResetConfirmView,
     PasswordResetRequestView,
     RegisterView,
@@ -44,23 +43,25 @@ from myapp.views import (
     UpdateLoadProgressView,
     CloseLoadView,
     UploadLoadImageView,
+    OfferHistoryViewSet,  # ✅ ViewSet nuevo
 )
 
-# Routers para ViewSets
+# Routers
 router = DefaultRouter()
 router.register(r'user-permissions', UserPermissionViewSet, basename='user-permissions')
 router.register(r'customers', CustomerViewSet, basename='customers')
 router.register(r'corporations', CorporationViewSet, basename='corporations')
 router.register(r'loads', LoadViewSet, basename='loads')
+router.register(r'trucks', TruckViewSet, basename='trucks')
 router.register(r'stops', StopViewSet, basename='stops')
 router.register(r'warnings', WarningViewSet, basename='warnings')
-router.register(r'trucks', TruckViewSet, basename='trucks')
 router.register(r'users', UserViewSet, basename='users')
 router.register(r'carrier-users', CarrierUserViewSet, basename='carrieruser')
 router.register(r'carrier-actions', CarrierUserActionsViewSet, basename='carrier-actions')
 router.register(r'debug-test', DebugTestViewSet, basename='debug-test')
+router.register(r'offers', OfferHistoryViewSet, basename='offers')  # ✅ Ofertas globales
+router.register(r'loads/(?P<load_id>\d+)/offers', OfferHistoryViewSet, basename='load-offers')  # ✅ Ofertas por carga
 
-# URL patterns
 urlpatterns = [
     path('', RedirectView.as_view(url='/admin/', permanent=True)),
     path('admin/', admin.site.urls),
@@ -75,12 +76,6 @@ urlpatterns = [
     path('api/loads/<int:load_id>/stops/<int:stop_id>/', LoadStopsView.as_view(), name='edit-stop'),
     path('api/stops/load/<int:load_id>/', StopViewSet.as_view({'get': 'stops_by_load'}), name='stops-by-load'),
     path('api/stops/<int:stop_id>/delays/', DelayView.as_view(), name='delay-list-create'),
-
-    # Offers
-    path('api/loads/<int:load_id>/offers/', OfferHistoryView.as_view(), name='load-offers'),  # GET, POST
-    path('api/loads/offers/', OfferHistoryView.as_view(), name='all-offers'),  # GET all
-    path('api/loads/offers/<int:offer_id>/', OfferHistoryView.as_view(), name='offer-detail'),  # PUT, DELETE
-    path('api/loads/offers/<int:offer_id>/<str:action>/', OfferHistoryView.as_view(), name='offer-action'),  # PATCH (accept/reject)
 
     # Warnings
     path('api/loads/<int:load_id>/warnings/', LoadWarningsView.as_view(), name='load-warnings'),
@@ -121,6 +116,5 @@ urlpatterns = [
     path('password-reset-confirm/', PasswordResetConfirmView.as_view(), name='password_reset_confirm'),
 ]
 
-# Static & Media
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 urlpatterns += static('/progress_pictures/', document_root=settings.BASE_DIR / 'progress_pictures')

@@ -102,18 +102,30 @@ class CarrierEmployeeProfile(models.Model):
 
 class Corporation(models.Model):
     name = models.CharField(max_length=100, unique=True)
-    dot_number = models.CharField(max_length=100, null=True, blank=True)  # si aplica
+    dot_number = models.CharField(max_length=100, null=True, blank=True)
+    address = models.CharField(max_length=255, blank=True, null=True, default='')
+    city = models.CharField(max_length=100, blank=True, null=True, default='')
+    state = models.CharField(max_length=100, blank=True, null=True, default='')
+    zip_code = models.CharField(max_length=20, blank=True, null=True, default='')
+    phone_number = models.CharField(max_length=20, blank=True, null=True, default='')
+    extension = models.CharField(max_length=10, blank=True, null=True, default='')
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return self.name
+
     
 class Customer(models.Model):
     corporation = models.ForeignKey(Corporation, on_delete=models.CASCADE, related_name="contacts")
     name = models.CharField(max_length=100)
     email = models.EmailField()
     phone_number = models.CharField(max_length=20)
-    position = models.CharField(max_length=100)  # Ej: Logística, Encargado de pagos, etc.
+    extension = models.CharField(max_length=10, blank=True, null=True, default='')
+    position = models.CharField(max_length=100)
+    address = models.CharField(max_length=255, blank=True, null=True, default='')
+    city = models.CharField(max_length=100, blank=True, null=True, default='')
+    state = models.CharField(max_length=100, blank=True, null=True, default='')
+    zip_code = models.CharField(max_length=20, blank=True, null=True, default='')
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):

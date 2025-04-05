@@ -278,100 +278,72 @@ class LoadStopsView(APIView):
         return Response({"message": "Stop deleted successfully"}, status=status.HTTP_204_NO_CONTENT)
 
 
-class OfferHistoryView(APIView):
+class OfferHistoryViewSet(viewsets.ModelViewSet):
+    queryset = OfferHistory.objects.all()
+    serializer_class = OfferHistorySerializer
     permission_classes = [IsAuthenticated]
 
-    def get(self, request, load_id=None):
-        """
-        Listar todas las ofertas o las ofertas de un `Load` específico.
-        """
+    def get_queryset(self):
+        load_id = self.kwargs.get("load_id")
         if load_id:
-            offers = OfferHistory.objects.filter(load_id=load_id)
-            if not offers.exists():
-                return Response(
-                    {"detail": f"No se encontraron ofertas para la carga con ID {load_id}."},
-                    status=status.HTTP_404_NOT_FOUND,
-                )
-        else:
-            offers = OfferHistory.objects.all()
+            return OfferHistory.objects.filter(load_id=load_id)
+        return super().get_queryset()
 
-        serializer = OfferHistorySerializer(offers, many=True)
+    def create(self, request, load_id=None):
+        load = get_object_or_404(Load, idmmload=load_id)
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save(user=request.user, load=load)
+
+        load.number_of_offers = F("number_of_offers") + 1
+        load.is_offerted = True
+        load.save(update_fields=["number_of_offers", "is_offerted"])
+
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    def update(self, request, pk=None):
+        offer = get_object_or_404(OfferHistory, pk=pk)
+        if offer.status in ["accepted", "rejected"]:
+            return Response({"detail": "No se puede editar una oferta ya aceptada o rechazada."}, status=status.HTTP_400_BAD_REQUEST)
+
+        serializer = self.get_serializer(offer, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
         return Response(serializer.data, status=status.HTTP_200_OK)
 
-    def post(self, request, load_id):
-        """
-        Crear una nueva oferta asociada a una carga específica.
-        """
-        load = get_object_or_404(Load, idmmload=load_id)
+    def destroy(self, request, pk=None):
+        offer = get_object_or_404(OfferHistory, pk=pk)
+        load = offer.load
+        offer.delete()
 
-        serializer = OfferHistorySerializer(data=request.data)
-        if serializer.is_valid():
-            serializer.save(user=request.user, load=load)
+        load.number_of_offers = F("number_of_offers") - 1
+        load.save(update_fields=["number_of_offers"])
+        load.refresh_from_db(fields=["number_of_offers"])
 
-            # Actualizar contador y flag
-            load.number_of_offers = F('number_of_offers') + 1
-            load.is_offerted = True
-            load.save(update_fields=["number_of_offers", "is_offerted"])
+        if load.number_of_offers <= 0:
+            load.is_offerted = False
+            load.save(update_fields=["is_offerted"])
 
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response({"message": "Oferta eliminada con éxito."}, status=status.HTTP_200_OK)
 
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-    def patch(self, request, offer_id, action):
-        """
-        Aceptar o rechazar una oferta.
-        """
-        offer = get_object_or_404(OfferHistory, id=offer_id)
-
+    @action(detail=True, methods=['patch'], url_path='accept')
+    def accept_offer(self, request, pk=None):
+        offer = get_object_or_404(OfferHistory, pk=pk)
         try:
-            if action == "accept":
-                offer.accept_offer()
-                return Response({"message": "Oferta aceptada con éxito."}, status=status.HTTP_200_OK)
-
-            elif action == "reject":
-                offer.reject_offer()
-                return Response({"message": "Oferta rechazada con éxito."}, status=status.HTTP_200_OK)
-
-            return Response({"error": "Acción no válida."}, status=status.HTTP_400_BAD_REQUEST)
-
+            offer.accept_offer()
+            return Response({"message": "Oferta aceptada con éxito."}, status=status.HTTP_200_OK)
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
-    def put(self, request, offer_id):
-        """
-        Editar una oferta específica (solo si está pendiente).
-        """
-        offer = get_object_or_404(OfferHistory, id=offer_id)
+    @action(detail=True, methods=['patch'], url_path='reject')
+    def reject_offer(self, request, pk=None):
+        offer = get_object_or_404(OfferHistory, pk=pk)
+        try:
+            offer.reject_offer()
+            return Response({"message": "Oferta rechazada con éxito."}, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
-        if offer.status in ['accepted', 'rejected']:
-            return Response(
-                {"detail": "No se puede editar una oferta ya aceptada o rechazada."},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        serializer = OfferHistorySerializer(offer, data=request.data, partial=True)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_200_OK)
-
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-    def delete(self, request, offer_id):
-        """
-        Eliminar una oferta específica.
-        """
-        offer = get_object_or_404(OfferHistory, id=offer_id)
-        load = offer.load
-
-        offer.delete()
-
-        # Actualizar campos del load
-        load.number_of_offers = F('number_of_offers') - 1
-        if load.number_of_offers <= 1:  # <= por si la anterior era 1
-            load.is_offerted = False
-        load.save(update_fields=["number_of_offers", "is_offerted"])
-
-        return Response({"message": "Oferta eliminada con éxito."}, status=status.HTTP_200_OK)
 
 class AssignRoleView(APIView):
     """
