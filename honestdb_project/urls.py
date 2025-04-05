@@ -43,7 +43,7 @@ from myapp.views import (
     UpdateLoadProgressView,
     CloseLoadView,
     UploadLoadImageView,
-    OfferHistoryViewSet,  # ✅ ViewSet nuevo
+    OfferHistoryViewSet  # ✅ ViewSet actualizado
 )
 
 # Routers
@@ -59,8 +59,7 @@ router.register(r'users', UserViewSet, basename='users')
 router.register(r'carrier-users', CarrierUserViewSet, basename='carrieruser')
 router.register(r'carrier-actions', CarrierUserActionsViewSet, basename='carrier-actions')
 router.register(r'debug-test', DebugTestViewSet, basename='debug-test')
-router.register(r'offers', OfferHistoryViewSet, basename='offers')  # ✅ Ofertas globales
-router.register(r'loads/(?P<load_id>\d+)/offers', OfferHistoryViewSet, basename='load-offers')  # ✅ Ofertas por carga
+router.register(r'offers', OfferHistoryViewSet, basename='offers')  # ✅ Ruta general para ofertas
 
 urlpatterns = [
     path('', RedirectView.as_view(url='/admin/', permanent=True)),
@@ -76,6 +75,12 @@ urlpatterns = [
     path('api/loads/<int:load_id>/stops/<int:stop_id>/', LoadStopsView.as_view(), name='edit-stop'),
     path('api/stops/load/<int:load_id>/', StopViewSet.as_view({'get': 'stops_by_load'}), name='stops-by-load'),
     path('api/stops/<int:stop_id>/delays/', DelayView.as_view(), name='delay-list-create'),
+
+    # Offers por carga (cuidado con el orden)
+    path('api/loads/<int:load_id>/offers/', OfferHistoryViewSet.as_view({'get': 'list', 'post': 'create'}), name='load-offers'),
+    path('api/offers/<int:pk>/', OfferHistoryViewSet.as_view({'put': 'update', 'delete': 'destroy'}), name='offer-detail'),
+    path('api/offers/<int:pk>/accept/', OfferHistoryViewSet.as_view({'patch': 'accept_offer'}), name='offer-accept'),
+    path('api/offers/<int:pk>/reject/', OfferHistoryViewSet.as_view({'patch': 'reject_offer'}), name='offer-reject'),
 
     # Warnings
     path('api/loads/<int:load_id>/warnings/', LoadWarningsView.as_view(), name='load-warnings'),
@@ -116,5 +121,6 @@ urlpatterns = [
     path('password-reset-confirm/', PasswordResetConfirmView.as_view(), name='password_reset_confirm'),
 ]
 
+# Static & Media
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 urlpatterns += static('/progress_pictures/', document_root=settings.BASE_DIR / 'progress_pictures')
