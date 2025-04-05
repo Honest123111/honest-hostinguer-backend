@@ -469,7 +469,7 @@ class OfferHistory(models.Model):
         super().save(*args, **kwargs)
 
     def __str__(self):
-        return f'Offer {self.amount} by User {self.user.id} for Load {self.load.id} on {self.date}'
+        return f'Offer {self.amount} by User {self.user.id} for Load {self.load.idmmload} on {self.date}'
 
     @classmethod
     def assign_load_without_offer(cls, load, user):
@@ -491,7 +491,7 @@ class OfferHistory(models.Model):
         ordering = ['-date']
         verbose_name = 'Offer History'
         verbose_name_plural = 'Offer Histories'
-        
+
 class Job_Type(models.Model):
     idmmjob = models.AutoField(primary_key=True)
     name = models.CharField(max_length=100)
