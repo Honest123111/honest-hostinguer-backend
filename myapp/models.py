@@ -15,6 +15,38 @@ class Role(models.Model):
     def __str__(self):
         return self.name
 
+class Corporation(models.Model):
+    name = models.CharField(max_length=100, unique=True)
+    dot_number = models.CharField(max_length=100, null=True, blank=True)
+    address = models.CharField(max_length=255, blank=True, null=True, default='')
+    city = models.CharField(max_length=100, blank=True, null=True, default='')
+    state = models.CharField(max_length=100, blank=True, null=True, default='')
+    zip_code = models.CharField(max_length=20, blank=True, null=True, default='')
+    phone_number = models.CharField(max_length=20, blank=True, null=True, default='')
+    extension = models.CharField(max_length=10, blank=True, null=True, default='')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.name
+
+    
+class Customer(models.Model):
+    corporation = models.ForeignKey(Corporation, on_delete=models.CASCADE, related_name="contacts")
+    name = models.CharField(max_length=100)
+    email = models.EmailField()
+    phone_number = models.CharField(max_length=20)
+    extension = models.CharField(max_length=10, blank=True, null=True, default='')
+    position = models.CharField(max_length=100)
+    address = models.CharField(max_length=255, blank=True, null=True, default='')
+    city = models.CharField(max_length=100, blank=True, null=True, default='')
+    state = models.CharField(max_length=100, blank=True, null=True, default='')
+    zip_code = models.CharField(max_length=20, blank=True, null=True, default='')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.name} ({self.position}) - {self.corporation.name}"
+
+
 class CarrierUser(AbstractUser):
     CARRIER_TYPES = [
         ('us', 'United States-based Carrier'),
@@ -180,37 +212,6 @@ class CarrierAdminProfile(models.Model):
         if not self.role:
             self.role = Role.objects.filter(name__iexact='Admin Carrier').first()
         super().save(*args, **kwargs)
-        
-class Corporation(models.Model):
-    name = models.CharField(max_length=100, unique=True)
-    dot_number = models.CharField(max_length=100, null=True, blank=True)
-    address = models.CharField(max_length=255, blank=True, null=True, default='')
-    city = models.CharField(max_length=100, blank=True, null=True, default='')
-    state = models.CharField(max_length=100, blank=True, null=True, default='')
-    zip_code = models.CharField(max_length=20, blank=True, null=True, default='')
-    phone_number = models.CharField(max_length=20, blank=True, null=True, default='')
-    extension = models.CharField(max_length=10, blank=True, null=True, default='')
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    def __str__(self):
-        return self.name
-
-    
-class Customer(models.Model):
-    corporation = models.ForeignKey(Corporation, on_delete=models.CASCADE, related_name="contacts")
-    name = models.CharField(max_length=100)
-    email = models.EmailField()
-    phone_number = models.CharField(max_length=20)
-    extension = models.CharField(max_length=10, blank=True, null=True, default='')
-    position = models.CharField(max_length=100)
-    address = models.CharField(max_length=255, blank=True, null=True, default='')
-    city = models.CharField(max_length=100, blank=True, null=True, default='')
-    state = models.CharField(max_length=100, blank=True, null=True, default='')
-    zip_code = models.CharField(max_length=20, blank=True, null=True, default='')
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    def __str__(self):
-        return f"{self.name} ({self.position}) - {self.corporation.name}"
 
 
 class AddressO(models.Model):
