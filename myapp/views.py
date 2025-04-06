@@ -1424,46 +1424,55 @@ class CarrierUserActionsViewSet(viewsets.ViewSet):
             logger.warning("❌ Error al actualizar empleado: %s", serializer.errors)
             return Response(serializer.errors, status=400)
 
-
 class CarrierAdminViewSet(viewsets.ViewSet):
 
     @action(detail=False, methods=['post', 'get', 'put', 'delete'], url_path='manage-carrier-admin')
     def manage_admin(self, request):
+        # Crear nuevo admin
         if request.method == 'POST':
             serializer = CarrierAdminSerializer(data=request.data)
             if serializer.is_valid():
                 serializer.save()
-                return Response(serializer.data, status=201)
-            return Response(serializer.errors, status=400)
+                return Response(serializer.data, status=status.HTTP_201_CREATED)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+        # Listar todos los admins
         elif request.method == 'GET':
-            admins = CarrierAdminProfile.objects.select_related('user').all()
+            admins = CarrierAdminProfile.objects.select_related('user', 'corporation', 'customer', 'role').all()
             serializer = CarrierAdminSerializer(admins, many=True)
-            return Response(serializer.data)
+            return Response(serializer.data, status=status.HTTP_200_OK)
 
+        # Actualizar un admin existente
         elif request.method == 'PUT':
             admin_id = request.data.get('id')
+            if not admin_id:
+                return Response({'error': 'Missing admin ID'}, status=status.HTTP_400_BAD_REQUEST)
+
             try:
                 admin = CarrierAdminProfile.objects.get(id=admin_id)
             except CarrierAdminProfile.DoesNotExist:
-                return Response({'error': 'Admin not found'}, status=404)
+                return Response({'error': 'Admin not found'}, status=status.HTTP_404_NOT_FOUND)
 
             serializer = CarrierAdminSerializer(admin, data=request.data, partial=True)
             if serializer.is_valid():
                 serializer.save()
-                return Response(serializer.data)
-            return Response(serializer.errors, status=400)
+                return Response(serializer.data, status=status.HTTP_200_OK)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+        # Eliminar un admin
         elif request.method == 'DELETE':
             admin_id = request.data.get('id')
+            if not admin_id:
+                return Response({'error': 'Missing admin ID'}, status=status.HTTP_400_BAD_REQUEST)
+
             try:
                 admin = CarrierAdminProfile.objects.get(id=admin_id)
-                admin.user.delete()  # elimina también al usuario
+                if admin.user:
+                    admin.user.delete()  # Elimina también el usuario relacionado
                 admin.delete()
-                return Response({'message': 'Admin deleted successfully'}, status=204)
+                return Response({'message': 'Admin deleted successfully'}, status=status.HTTP_204_NO_CONTENT)
             except CarrierAdminProfile.DoesNotExist:
-                return Response({'error': 'Admin not found'}, status=404)
-            
+                return Response({'error': 'Admin not found'}, status=status.HTTP_404_NOT_FOUND) 
             
 class DebugTestViewSet(viewsets.ViewSet):
 
