@@ -81,6 +81,12 @@ class CustomerViewSet(viewsets.ModelViewSet):
     queryset = Customer.objects.all()
     serializer_class = CustomerSerializer
 
+    @action(detail=False, methods=['get'], url_path='by-corporation/(?P<corporation_id>[^/.]+)')
+    def list_by_corporation(self, request, corporation_id=None):
+        customers = Customer.objects.filter(corporation_id=corporation_id)
+        serializer = self.get_serializer(customers, many=True)
+        return Response(serializer.data)
+
 # Load ViewSet
 class LoadViewSet(viewsets.ModelViewSet):
     serializer_class = LoadSerializer

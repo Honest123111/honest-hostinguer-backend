@@ -121,7 +121,12 @@ urlpatterns = [
     # Password Reset
     path('password-reset-request/', PasswordResetRequestView.as_view(), name='password_reset_request'),
     path('password-reset-confirm/', PasswordResetConfirmView.as_view(), name='password_reset_confirm'),
+
+    # personalizacion para ver customer x corporation
+    path('api/corporations/<int:corporation_id>/customers/', CustomerViewSet.as_view({'get': 'list_by_corporation'}), name='customers-by-corporation')
+
 ]
+
 
 # Static & Media
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
