@@ -493,7 +493,7 @@ class OfferHistory(models.Model):
         load.assigned_user = user
         load.save()
 
-        return f'Load {load.id} has been assigned to user ID {user.id} without an offer.'
+        return f'Load {load.idmmload} has been assigned to user ID {user.id} without an offer.'
 
     class Meta:
         indexes = [
