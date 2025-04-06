@@ -112,7 +112,75 @@ class CarrierEmployeeProfile(models.Model):
 
     def __str__(self):
         return f"{self.user.first_name} {self.user.last_name} - {self.position}"
-    
+
+
+
+class CarrierAdminProfile(models.Model):
+    # Relación con usuario del sistema
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='carrier_admin_profile'
+    )
+
+    # Relación con rol "Admin Carrier"
+    role = models.ForeignKey(
+        Role,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='admin_carriers'
+    )
+
+    # Relación con entidad (Corporation) y contacto principal (Customer)
+    corporation = models.ForeignKey(
+        Corporation,
+        on_delete=models.CASCADE,
+        related_name='admins'
+    )
+    primary_contact = models.ForeignKey(
+        Customer,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='admin_profiles'
+    )
+
+    # Campos relacionados al seguro
+    insurance_type = models.CharField(max_length=100)
+    insurance_amount = models.DecimalField(max_digits=12, decimal_places=2)
+    insurance_expiration = models.DateField()
+    commodities_excluded = models.TextField(blank=True, null=True)
+
+    # Límites de cobertura
+    cargo_policy_limit = models.DecimalField(max_digits=12, decimal_places=2)
+    trailer_interchange_limit = models.DecimalField(max_digits=12, decimal_places=2)
+    reefer_breakdown_coverage = models.BooleanField(default=False)
+
+    # Rutas y certificados
+    preferred_lanes = models.TextField(blank=True, null=True)
+    insurance_certificate = models.FileField(upload_to='insurance_certificates/', blank=True, null=True)
+
+    # Asignados automáticamente
+    status = models.CharField(max_length=20, default='Active')
+    start_date = models.DateField(default=timezone.now)
+    termination_date = models.DateField(blank=True, null=True)
+
+    # Campos editables adicionales
+    number_of_drivers = models.PositiveIntegerField(default=0)
+    number_of_vehicles = models.PositiveIntegerField(default=0)
+    equipment_type = models.CharField(max_length=100, blank=True, null=True)
+    certifications = models.TextField(blank=True, null=True)
+
+    def __str__(self):
+        return f"Admin: {self.user.email} - {self.corporation.name}"
+
+    def save(self, *args, **kwargs):
+        # Asignar rol por defecto si no está asignado
+        if not self.role:
+            self.role = Role.objects.filter(name__iexact='Admin Carrier').first()
+        super().save(*args, **kwargs)
+        
 class Corporation(models.Model):
     name = models.CharField(max_length=100, unique=True)
     dot_number = models.CharField(max_length=100, null=True, blank=True)

@@ -11,6 +11,7 @@ from rest_framework_simplejwt.views import TokenRefreshView
 from myapp.views import (
     AssignLoadWithoutOfferView,
     AssignRoleView,
+    CarrierAdminViewSet,
     CarrierUserActionsViewSet,
     CarrierUserViewSet,
     ClosedLoadsView,
@@ -60,6 +61,7 @@ router.register(r'carrier-users', CarrierUserViewSet, basename='carrieruser')
 router.register(r'carrier-actions', CarrierUserActionsViewSet, basename='carrier-actions')
 router.register(r'debug-test', DebugTestViewSet, basename='debug-test')
 router.register(r'offers', OfferHistoryViewSet, basename='offers')  # ✅ Ruta general para ofertas
+router.register(r'carrier-admins', CarrierAdminViewSet, basename='carrier-admins')  # ✅ Agregado
 
 urlpatterns = [
     path('', RedirectView.as_view(url='/admin/', permanent=True)),

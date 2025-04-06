@@ -1,6 +1,6 @@
 from django.contrib import admin
 from .models import (
-    CarrierEmployeeProfile, CarrierUser, Customer, AddressO, AddressD, Load, Role, Stop,
+    CarrierAdminProfile, CarrierEmployeeProfile, CarrierUser, Corporation, Customer, AddressO, AddressD, Load, Role, Stop,
     EquipmentType, Job_Type, OfferHistory, ProcessedEmail, Warning,WarningList,LoadProgress,Truck
 )
 
@@ -51,3 +51,16 @@ class CarrierEmployeeProfileAdmin(admin.ModelAdmin):
     list_display = ('user', 'position', 'status', 'start_date', 'termination_date')
     list_filter = ('position', 'status')
     search_fields = ('user__first_name', 'user__last_name', 'user__email')
+
+@admin.register(Corporation)
+class CorporationAdmin(admin.ModelAdmin):
+    list_display = ('name', 'dot_number', 'city', 'state', 'zip_code', 'phone_number')
+    search_fields = ('name', 'dot_number', 'city', 'state')
+    list_filter = ('state',)
+    ordering = ('name',)
+
+@admin.register(CarrierAdminProfile)
+class CarrierAdminProfileAdmin(admin.ModelAdmin):
+    list_display = ('user', 'role', 'corporation', 'customer', 'status', 'start_date')
+    list_filter = ('status', 'role')
+    search_fields = ('user__email', 'corporation__name', 'customer__name')

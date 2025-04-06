@@ -11,7 +11,7 @@ from django.core.mail import send_mail
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework import serializers
 from .models import (
-    CarrierEmployeeProfile, CarrierUser, Corporation, Customer, AddressO, AddressD, Delay, Load, Role, Stop,
+    CarrierAdminProfile, CarrierEmployeeProfile, CarrierUser, Corporation, Customer, AddressO, AddressD, Delay, Load, Role, Stop,
     EquipmentType, Job_Type, OfferHistory, UserPermission, Warning,WarningList,LoadProgress,Truck
 )
 from datetime import datetime
@@ -499,6 +499,73 @@ class CarrierEmployeeSerializer(serializers.ModelSerializer):
             setattr(instance, attr, value)
         instance.save()
 
+        return instance
+
+class CarrierAdminSerializer(serializers.ModelSerializer):
+    email = serializers.EmailField(source='user.email')
+    password1 = serializers.CharField(write_only=True)
+    password2 = serializers.CharField(write_only=True)
+    first_name = serializers.CharField(source='user.first_name')
+    last_name = serializers.CharField(source='user.last_name')
+
+    corporation = serializers.PrimaryKeyRelatedField(queryset=Corporation.objects.all())
+    primary_contact = serializers.PrimaryKeyRelatedField(queryset=Customer.objects.all())
+
+    class Meta:
+        model = CarrierAdminProfile
+        fields = [
+            'id', 'email', 'password1', 'password2', 'first_name', 'last_name',
+            'corporation', 'primary_contact', 'insurance_type', 'insurance_amount',
+            'insurance_expiration', 'excluded_commodities', 'cargo_policy_limit',
+            'trailer_interchange_limit', 'reefer_breakdown_coverage',
+            'lanes', 'insurance_certificate', 'number_of_drivers', 'number_of_vehicles',
+            'termination_date', 'equipment_type', 'certifications',
+            'status', 'start_date'
+        ]
+        read_only_fields = ['status', 'start_date']
+
+    def create(self, validated_data):
+        user_data = validated_data.pop('user')
+        password1 = validated_data.pop('password1')
+        password2 = validated_data.pop('password2')
+
+        if password1 != password2:
+            raise serializers.ValidationError("Passwords do not match.")
+
+        email = user_data['email']
+        if CarrierUser.objects.filter(email=email).exists():
+            raise serializers.ValidationError("A user with this email already exists.")
+
+        user = CarrierUser.objects.create(
+            username=email,
+            email=email,
+            first_name=user_data['first_name'],
+            last_name=user_data['last_name'],
+            password=make_password(password1)
+        )
+
+        role, _ = Role.objects.get_or_create(name='Admin Carrier')
+        return CarrierAdminProfile.objects.create(user=user, role=role, **validated_data)
+
+    def update(self, instance, validated_data):
+        user_data = validated_data.pop('user', {})
+        password1 = validated_data.pop('password1', None)
+        password2 = validated_data.pop('password2', None)
+
+        for attr, value in user_data.items():
+            setattr(instance.user, attr, value)
+
+        if password1 and password2:
+            if password1 != password2:
+                raise serializers.ValidationError("Passwords do not match.")
+            instance.user.password = make_password(password1)
+
+        instance.user.save()
+
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+
+        instance.save()
         return instance
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
