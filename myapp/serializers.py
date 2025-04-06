@@ -407,6 +407,11 @@ class CarrierUserSerializer(serializers.ModelSerializer):
         model = CarrierUser
         fields = '__all__'
 
+from .models import CarrierEmployeeProfile, CarrierUser, Role
+from rest_framework import serializers
+from django.contrib.auth.hashers import make_password
+from datetime import datetime
+
 class CarrierEmployeeSerializer(serializers.ModelSerializer):
     # Campos del usuario (CarrierUser)
     first_name = serializers.CharField(source='user.first_name')
@@ -422,12 +427,20 @@ class CarrierEmployeeSerializer(serializers.ModelSerializer):
     start_date = serializers.SerializerMethodField()
     termination_date = serializers.SerializerMethodField()
 
+    # Nuevo campo de rol
+    role = serializers.SlugRelatedField(
+        slug_field='name',
+        queryset=Role.objects.all(),
+        required=False
+    )
+
     class Meta:
         model = CarrierEmployeeProfile
         fields = [
             'carrier_employee_id', 'first_name', 'last_name', 'email',
             'password1', 'password2', 'phone', 'position',
-            'phone_number', 'extension', 'status', 'start_date', 'termination_date'
+            'phone_number', 'extension', 'status', 'start_date', 'termination_date',
+            'role'
         ]
         read_only_fields = ['carrier_employee_id', 'status', 'start_date']
 
@@ -441,6 +454,7 @@ class CarrierEmployeeSerializer(serializers.ModelSerializer):
         user_data = validated_data.pop('user')
         password1 = validated_data.pop('password1')
         password2 = validated_data.pop('password2')
+        role = validated_data.pop('role', None)
 
         if password1 != password2:
             raise serializers.ValidationError("Passwords do not match.")
@@ -458,7 +472,11 @@ class CarrierEmployeeSerializer(serializers.ModelSerializer):
             password=make_password(password1)
         )
 
-        return CarrierEmployeeProfile.objects.create(user=user, **validated_data)
+        # Asignar rol por defecto si no se proporciona
+        if not role:
+            role = Role.objects.get_or_create(name='Carrier Employee')[0]
+
+        return CarrierEmployeeProfile.objects.create(user=user, role=role, **validated_data)
 
     def update(self, instance, validated_data):
         user_data = validated_data.pop('user', {})

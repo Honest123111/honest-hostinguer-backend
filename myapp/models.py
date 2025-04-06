@@ -78,17 +78,31 @@ class CarrierUser(AbstractUser):
             first_group = self.groups.first()
             self.groups.set([first_group])  # Reemplaza todos por el primero
 
+
 class CarrierEmployeeProfile(models.Model):
     POSITION_CHOICES = [
         ('employee', 'Employee'),
         ('driver', 'Driver'),
     ]
 
-    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='carrier_profile')
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='carrier_profile'
+    )
     position = models.CharField(max_length=20, choices=POSITION_CHOICES)
     creation_date = models.DateField(auto_now_add=True)
     phone_number = models.CharField(max_length=20)
     extension = models.CharField(max_length=10, blank=True, null=True)
+
+    # Nuevo campo: Rol
+    role = models.ForeignKey(
+        Role,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='carrier_employees'
+    )
 
     # Campos del sistema
     carrier_employee_id = models.AutoField(primary_key=True)
@@ -98,8 +112,7 @@ class CarrierEmployeeProfile(models.Model):
 
     def __str__(self):
         return f"{self.user.first_name} {self.user.last_name} - {self.position}"
-
-
+    
 class Corporation(models.Model):
     name = models.CharField(max_length=100, unique=True)
     dot_number = models.CharField(max_length=100, null=True, blank=True)

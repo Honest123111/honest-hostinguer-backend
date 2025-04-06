@@ -1386,29 +1386,35 @@ class CarrierUserActionsViewSet(viewsets.ViewSet):
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
-            serializer = CarrierEmployeeSerializer(data=request.data)
+            serializer = CarrierEmployeeSerializer(data=request.data, context={'request': request})
             if serializer.is_valid():
                 serializer.save()
                 logger.info("✅ Empleado creado con éxito")
                 return Response(serializer.data, status=status.HTTP_201_CREATED)
+            logger.warning("❌ Error al registrar empleado: %s", serializer.errors)
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         elif request.method == 'GET':
-            employees = CarrierEmployeeProfile.objects.select_related('user').all()
+            employees = CarrierEmployeeProfile.objects.select_related('user', 'role').all()
             serializer = CarrierEmployeeSerializer(employees, many=True)
             return Response(serializer.data)
 
         elif request.method == 'PUT':
-            user_id = request.data.get('id')  # debe venir el ID del usuario
+            user_id = request.data.get('id')
+            if not user_id:
+                return Response({'error': 'Se requiere el ID del usuario.'}, status=400)
+
             try:
-                employee = CarrierEmployeeProfile.objects.select_related('user').get(user__id=user_id)
+                employee = CarrierEmployeeProfile.objects.select_related('user', 'role').get(user__id=user_id)
             except CarrierEmployeeProfile.DoesNotExist:
                 return Response({'error': 'Empleado no encontrado'}, status=404)
 
             serializer = CarrierEmployeeSerializer(employee, data=request.data, partial=True)
             if serializer.is_valid():
                 serializer.save()
+                logger.info("✅ Empleado actualizado correctamente")
                 return Response(serializer.data)
+            logger.warning("❌ Error al actualizar empleado: %s", serializer.errors)
             return Response(serializer.errors, status=400)
 
 class DebugTestViewSet(viewsets.ViewSet):
