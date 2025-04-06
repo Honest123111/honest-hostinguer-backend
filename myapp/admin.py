@@ -61,6 +61,11 @@ class CorporationAdmin(admin.ModelAdmin):
 
 @admin.register(CarrierAdminProfile)
 class CarrierAdminProfileAdmin(admin.ModelAdmin):
-    list_display = ('user', 'role', 'corporation', 'customer', 'status', 'start_date')
-    list_filter = ('status', 'role')
-    search_fields = ('user__email', 'corporation__name', 'customer__name')
+    list_display = ('user', 'role', 'corporation', 'get_customer', 'status', 'start_date', 'termination_date')
+    list_filter = ('role', 'status')
+    search_fields = ('user__first_name', 'user__last_name', 'user__email')
+
+    def get_customer(self, obj):
+        return obj.customer.name if obj.customer else '-'
+    
+    get_customer.short_description = 'Customer'
