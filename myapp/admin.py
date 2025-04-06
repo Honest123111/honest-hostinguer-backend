@@ -5,6 +5,7 @@ from .models import (
 )
 
 admin.site.register(Customer)
+admin.site.register(Corporation)
 admin.site.register(AddressO)
 admin.site.register(AddressD)
 admin.site.register(Stop)
