@@ -205,4 +205,4 @@ EMAIL_HOST_USER = "aventurastorefigures@gmail.com"
 EMAIL_HOST_PASSWORD = "jnwz asgl hwae mcdi"
 
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
-FRONTEND_RESET_URL = "http://localhost:4200/reset-password"  # o tu URL real
+FRONTEND_RESET_URL = "https://honesttransportationfront.web.app/reset-password"  # o tu URL real
