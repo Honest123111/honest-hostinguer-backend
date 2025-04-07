@@ -502,25 +502,27 @@ class CarrierEmployeeSerializer(serializers.ModelSerializer):
         return instance
 
 class CarrierAdminSerializer(serializers.ModelSerializer):
+    # Campos del usuario vinculado (CarrierUser)
     email = serializers.EmailField(source='user.email')
-    password1 = serializers.CharField(write_only=True)
-    password2 = serializers.CharField(write_only=True)
     first_name = serializers.CharField(source='user.first_name')
     last_name = serializers.CharField(source='user.last_name')
+    password1 = serializers.CharField(write_only=True)
+    password2 = serializers.CharField(write_only=True)
 
+    # Relaciones
     corporation = serializers.PrimaryKeyRelatedField(queryset=Corporation.objects.all())
-    primary_contact = serializers.PrimaryKeyRelatedField(queryset=Customer.objects.all())
+    primary_contact = serializers.PrimaryKeyRelatedField(queryset=Customer.objects.all(), allow_null=True)
 
     class Meta:
         model = CarrierAdminProfile
         fields = [
             'id', 'email', 'password1', 'password2', 'first_name', 'last_name',
-            'corporation', 'primary_contact', 'insurance_type', 'insurance_amount',
-            'insurance_expiration', 'excluded_commodities', 'cargo_policy_limit',
-            'trailer_interchange_limit', 'reefer_breakdown_coverage',
-            'lanes', 'insurance_certificate', 'number_of_drivers', 'number_of_vehicles',
-            'termination_date', 'equipment_type', 'certifications',
-            'status', 'start_date'
+            'corporation', 'primary_contact',
+            'insurance_type', 'insurance_amount', 'insurance_expiration',
+            'commodities_excluded', 'cargo_policy_limit', 'trailer_interchange_limit',
+            'reefer_breakdown_coverage', 'preferred_lanes', 'insurance_certificate',
+            'number_of_drivers', 'number_of_vehicles', 'equipment_type', 'certifications',
+            'status', 'start_date', 'termination_date'
         ]
         read_only_fields = ['status', 'start_date']
 
@@ -536,6 +538,7 @@ class CarrierAdminSerializer(serializers.ModelSerializer):
         if CarrierUser.objects.filter(email=email).exists():
             raise serializers.ValidationError("A user with this email already exists.")
 
+        # Crear usuario
         user = CarrierUser.objects.create(
             username=email,
             email=email,
@@ -544,7 +547,10 @@ class CarrierAdminSerializer(serializers.ModelSerializer):
             password=make_password(password1)
         )
 
+        # Obtener o crear rol automáticamente
         role, _ = Role.objects.get_or_create(name='Admin Carrier')
+
+        # Crear el perfil admin
         return CarrierAdminProfile.objects.create(user=user, role=role, **validated_data)
 
     def update(self, instance, validated_data):
@@ -552,6 +558,7 @@ class CarrierAdminSerializer(serializers.ModelSerializer):
         password1 = validated_data.pop('password1', None)
         password2 = validated_data.pop('password2', None)
 
+        # Actualizar usuario
         for attr, value in user_data.items():
             setattr(instance.user, attr, value)
 
@@ -562,10 +569,11 @@ class CarrierAdminSerializer(serializers.ModelSerializer):
 
         instance.user.save()
 
+        # Actualizar perfil
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
-
         instance.save()
+
         return instance
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
