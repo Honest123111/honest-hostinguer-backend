@@ -344,7 +344,7 @@ class PasswordResetRequestSerializer(serializers.Serializer):
         token = default_token_generator.make_token(user)
 
         # URL de frontend (ajústalo según tu entorno)
-        reset_url = f"http://localhost:4200/reset-password/{uid}/{token}"
+        reset_url = f"https://honesttransportationfront.web.app/reset-password/{uid}/{token}"
 
         send_mail(
             subject="Password Reset",
