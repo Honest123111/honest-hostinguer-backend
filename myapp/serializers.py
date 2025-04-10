@@ -19,13 +19,14 @@ from datetime import datetime
 class CustomerSerializer(serializers.ModelSerializer):
     class Meta:
         model = Customer
-        fields = '__all__'  # ✅ Asegúrate de incluir todos los campos
+        fields = '__all__'
 
-# serializers.py
 class CorporationSerializer(serializers.ModelSerializer):
+    contacts = CustomerSerializer(many=True, read_only=True)
+
     class Meta:
         model = Corporation
-        fields = '__all__'  # ✅ Asegúrate de incluir todos los campos
+        fields = '__all__'
 
 class AddressOSerializer(serializers.ModelSerializer):
     class Meta:
