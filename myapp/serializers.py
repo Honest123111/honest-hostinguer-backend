@@ -11,7 +11,7 @@ from django.core.mail import send_mail
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework import serializers
 from .models import (
-    CarrierAdminProfile, CarrierEmployeeProfile, CarrierUser, Corporation, Customer, AddressO, AddressD, Delay, Load, Role, ShipperAdminProfile, ShipperEmployeeProfile, Stop,
+    AdminCarrier2, CarrierAdminProfile, CarrierEmployeeProfile, CarrierUser, Corporation, Customer, AddressO, AddressD, Delay, Load, Role, ShipperAdminProfile, ShipperEmployeeProfile, Stop,
     EquipmentType, Job_Type, OfferHistory, UserPermission, Warning,WarningList,LoadProgress,Truck
 )
 from datetime import datetime
@@ -748,6 +748,97 @@ class ShipperEmployeeSerializer(serializers.ModelSerializer):
             if password1 != password2:
                 raise serializers.ValidationError("Passwords do not match.")
             user.set_password(password1)
+
+        user.save()
+
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+
+        return instance
+    
+class AdminCarrier2Serializer(serializers.ModelSerializer):
+    # Campos del usuario
+    email = serializers.EmailField(source='user.email')
+    first_name = serializers.CharField(source='user.first_name')
+    last_name = serializers.CharField(source='user.last_name')
+    password1 = serializers.CharField(write_only=True)
+    password2 = serializers.CharField(write_only=True)
+
+    # Fechas personalizadas (para evitar errores con datetime)
+    start_date = serializers.SerializerMethodField()
+    termination_date = serializers.SerializerMethodField()
+    insurance_expiration = serializers.SerializerMethodField()
+
+    class Meta:
+        model = AdminCarrier2
+        fields = [
+            'id', 'email', 'password1', 'password2', 'first_name', 'last_name',
+            'company_name', 'usdot_number', 'mc_number', 'address',
+            'primary_contact_name', 'primary_contact_email', 'primary_contact_phone',
+            'insurance_type', 'insurance_amount', 'insurance_expiration',
+            'commodities_excluded', 'cargo_policy_limit', 'trailer_interchange_limit',
+            'reefer_breakdown_coverage', 'preferred_lanes', 'insurance_certificate',
+            'number_of_drivers', 'number_of_vehicles', 'equipment', 'certifications',
+            'factoring_company', 'status', 'start_date', 'termination_date'
+        ]
+        read_only_fields = ['status', 'start_date']
+
+    def _format_date(self, value):
+        if hasattr(value, 'date'):
+            return value.date().isoformat()
+        elif value:
+            return value.isoformat()
+        return None
+
+    def get_start_date(self, obj):
+        return self._format_date(obj.start_date)
+
+    def get_termination_date(self, obj):
+        return self._format_date(obj.termination_date)
+
+    def get_insurance_expiration(self, obj):
+        return self._format_date(obj.insurance_expiration)
+
+    def validate(self, data):
+        if data['password1'] != data['password2']:
+            raise serializers.ValidationError("Passwords do not match.")
+        return data
+
+    def create(self, validated_data):
+        user_data = validated_data.pop('user')
+        password = validated_data.pop('password1')
+        validated_data.pop('password2')
+
+        email = user_data['email']
+        if CarrierUser.objects.filter(email=email).exists():
+            raise serializers.ValidationError("A user with this email already exists.")
+
+        user = CarrierUser(
+            username=email,
+            email=email,
+            first_name=user_data['first_name'],
+            last_name=user_data['last_name'],
+            password=make_password(password)
+        )
+        user.save()
+
+        return AdminCarrier2.objects.create(user=user, **validated_data)
+
+    def update(self, instance, validated_data):
+        user_data = validated_data.pop('user', {})
+        password1 = validated_data.pop('password1', None)
+        password2 = validated_data.pop('password2', None)
+
+        user = instance.user
+        for attr in ['first_name', 'last_name', 'email']:
+            if attr in user_data:
+                setattr(user, attr, user_data[attr])
+
+        if password1 and password2:
+            if password1 != password2:
+                raise serializers.ValidationError("Passwords do not match.")
+            user.password = make_password(password1)
 
         user.save()
 

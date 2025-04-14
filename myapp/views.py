@@ -22,9 +22,10 @@ from django.core.files.storage import default_storage
 from django.core.files.base import ContentFile
 from .utils import read_new_load_excel, read_spot_load_excel, read_truck_availability_excel
 from django.shortcuts import render, redirect
-from .models import CarrierAdminProfile, CarrierEmployeeProfile, CarrierUser, Corporation, Delay, ShipperAdminProfile, ShipperEmployeeProfile, UserPermission, Warning
+from .models import AdminCarrier2, CarrierAdminProfile, CarrierEmployeeProfile, CarrierUser, Corporation, Delay, ShipperAdminProfile, ShipperEmployeeProfile, UserPermission, Warning
 from .models import Customer, Load, Stop, EquipmentType, OfferHistory,WarningList,Truck
 from .serializers import (
+    AdminCarrier2Serializer,
     AssignRoleSerializer,
     CarrierAdminSerializer,
     CarrierEmployeeSerializer,
@@ -1586,3 +1587,54 @@ class ShipperEmployeeViewSet(viewsets.ViewSet):
                 return Response({'message': 'Shipper employee deleted successfully.'}, status=status.HTTP_204_NO_CONTENT)
             except ShipperEmployeeProfile.DoesNotExist:
                 return Response({'error': 'Employee not found'}, status=status.HTTP_404_NOT_FOUND)
+
+class AdminCarrier2ViewSet(viewsets.ViewSet):
+
+    @action(detail=False, methods=['post', 'get', 'put', 'delete'], url_path='manage-admincarrier2')
+    def manage_admincarrier2(self, request):
+        # Crear nuevo registro
+        if request.method == 'POST':
+            serializer = AdminCarrier2Serializer(data=request.data)
+            if serializer.is_valid():
+                serializer.save()
+                return Response(serializer.data, status=status.HTTP_201_CREATED)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        # Obtener todos los registros
+        elif request.method == 'GET':
+            carriers = AdminCarrier2.objects.select_related('user').all()
+            serializer = AdminCarrier2Serializer(carriers, many=True)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+
+        # Actualizar registro existente
+        elif request.method == 'PUT':
+            carrier_id = request.data.get('id')
+            if not carrier_id:
+                return Response({'error': 'Missing carrier ID'}, status=status.HTTP_400_BAD_REQUEST)
+
+            try:
+                carrier = AdminCarrier2.objects.get(id=carrier_id)
+            except AdminCarrier2.DoesNotExist:
+                return Response({'error': 'Carrier not found'}, status=status.HTTP_404_NOT_FOUND)
+
+            serializer = AdminCarrier2Serializer(carrier, data=request.data, partial=True)
+            if serializer.is_valid():
+                serializer.save()
+                return Response(serializer.data, status=status.HTTP_200_OK)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        # Eliminar registro
+        elif request.method == 'DELETE':
+            carrier_id = request.data.get('id')
+            if not carrier_id:
+                return Response({'error': 'Missing carrier ID'}, status=status.HTTP_400_BAD_REQUEST)
+
+            try:
+                carrier = AdminCarrier2.objects.get(id=carrier_id)
+                user = carrier.user
+                carrier.delete()
+                if user:
+                    user.delete()
+                return Response({'message': 'Carrier deleted successfully.'}, status=status.HTTP_204_NO_CONTENT)
+            except AdminCarrier2.DoesNotExist:
+                return Response({'error': 'Carrier not found'}, status=status.HTTP_404_NOT_FOUND)

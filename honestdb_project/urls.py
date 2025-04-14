@@ -9,6 +9,7 @@ from django.views.generic.base import RedirectView
 from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import TokenRefreshView
 from myapp.views import (
+    AdminCarrier2ViewSet,
     AssignLoadWithoutOfferView,
     AssignRoleView,
     CarrierAdminViewSet,
@@ -66,6 +67,7 @@ router.register(r'offers', OfferHistoryViewSet, basename='offers')  # ✅ Ruta g
 router.register(r'carrier-admins', CarrierAdminViewSet, basename='carrier-admins')  # ✅ Agregado
 router.register(r'shipper-admins', ShipperAdminViewSet, basename='shipper-admin')
 router.register(r'shipper-employees', ShipperEmployeeViewSet, basename='shipper-employees')
+router.register(r'admincarrier2', AdminCarrier2ViewSet, basename='admincarrier2')
 
 urlpatterns = [
     path('', RedirectView.as_view(url='/admin/', permanent=True)),

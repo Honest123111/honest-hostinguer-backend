@@ -215,6 +215,53 @@ class CarrierAdminProfile(models.Model):
 
         super().save(*args, **kwargs)
 
+
+class AdminCarrier2(models.Model):
+    # --- Relación con el usuario del sistema ---
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='admincarrier2_profile'
+    )
+
+    # --- Datos empresa ---
+    company_name = models.CharField(max_length=255)
+    usdot_number = models.CharField(max_length=50)
+    mc_number = models.CharField(max_length=50)
+    address = models.TextField()
+
+    # --- Contacto principal ---
+    primary_contact_name = models.CharField(max_length=100)
+    primary_contact_email = models.EmailField()
+    primary_contact_phone = models.CharField(max_length=20)
+
+    # --- Seguro ---
+    insurance_type = models.CharField(max_length=100)
+    insurance_amount = models.DecimalField(max_digits=12, decimal_places=2)
+    insurance_expiration = models.DateField()
+    commodities_excluded = models.TextField(blank=True, null=True)
+    cargo_policy_limit = models.DecimalField(max_digits=12, decimal_places=2)
+    trailer_interchange_limit = models.DecimalField(max_digits=12, decimal_places=2)
+    reefer_breakdown_coverage = models.BooleanField(default=False)
+    preferred_lanes = models.TextField(blank=True, null=True)
+    insurance_certificate = models.FileField(upload_to='insurance_certificates_admincarrier2/', blank=True, null=True)
+
+    # --- Automáticos del sistema ---
+    status = models.CharField(max_length=20, default='Active')
+    start_date = models.DateField(default=get_today_date)  # Oculto, visible solo para admin principal
+    termination_date = models.DateField(blank=True, null=True)  # Solo visible por admin principal
+
+    # --- Modificables posteriormente ---
+    number_of_drivers = models.PositiveIntegerField(default=0)
+    number_of_vehicles = models.PositiveIntegerField(default=0)
+    equipment = models.CharField(max_length=100, blank=True, null=True)
+    certifications = models.TextField(blank=True, null=True)
+    factoring_company = models.TextField(blank=True, null=True)
+
+    def __str__(self):
+        return f"Carrier: {self.company_name} (USDOT: {self.usdot_number})"
+
+
 class AddressO(models.Model):
     id = models.AutoField(primary_key=True)
     zip_code = models.IntegerField()
