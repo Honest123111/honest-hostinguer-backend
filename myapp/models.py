@@ -263,6 +263,30 @@ class ShipperAdminProfile(models.Model):
     def __str__(self):
         return f"ShipperAdmin: {self.user.email} - {self.company_name}"
     
+class ShipperEmployeeProfile(models.Model):
+    # Relación con el usuario (autenticación)
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='shipper_employee_profile'
+    )
+
+    # Información ingresada manualmente
+    position = models.CharField(max_length=100)  # Obligatorio
+    phone_number = models.CharField(max_length=20)  # Obligatorio
+    extension = models.CharField(max_length=10, blank=True, null=True)  # Opcional
+
+    # Asignados automáticamente
+    status = models.CharField(max_length=20, default='Active')
+    start_date = models.DateTimeField(default=timezone.now)
+    termination_date = models.DateTimeField(blank=True, null=True)
+
+    def __str__(self):
+        return f"{self.user.get_full_name()} - {self.position}"
+
+    def save(self, *args, **kwargs):
+        # Puedes agregar lógica futura si deseas asignar algo adicionalmente
+        super().save(*args, **kwargs)
 
 class AddressD(models.Model):
     id = models.AutoField(primary_key=True)

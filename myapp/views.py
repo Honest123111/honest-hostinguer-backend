@@ -22,7 +22,7 @@ from django.core.files.storage import default_storage
 from django.core.files.base import ContentFile
 from .utils import read_new_load_excel, read_spot_load_excel, read_truck_availability_excel
 from django.shortcuts import render, redirect
-from .models import CarrierAdminProfile, CarrierEmployeeProfile, CarrierUser, Corporation, Delay, ShipperAdminProfile, UserPermission, Warning
+from .models import CarrierAdminProfile, CarrierEmployeeProfile, CarrierUser, Corporation, Delay, ShipperAdminProfile, ShipperEmployeeProfile, UserPermission, Warning
 from .models import Customer, Load, Stop, EquipmentType, OfferHistory,WarningList,Truck
 from .serializers import (
     AssignRoleSerializer,
@@ -37,6 +37,7 @@ from .serializers import (
     PasswordResetRequestSerializer,
     RegisterSerializer,
     ShipperAdminSerializer,
+    ShipperEmployeeSerializer,
     StopSerializer,
     EquipmentTypeSerializer,
     OfferHistorySerializer,
@@ -1534,3 +1535,53 @@ class ShipperAdminViewSet(viewsets.ViewSet):
                 return Response({'message': 'Shipper Admin deleted successfully'}, status=status.HTTP_204_NO_CONTENT)
             except ShipperAdminProfile.DoesNotExist:
                 return Response({'error': 'Shipper Admin not found'}, status=status.HTTP_404_NOT_FOUND)
+            
+class ShipperEmployeeViewSet(viewsets.ViewSet):
+
+    @action(detail=False, methods=['post', 'get', 'put', 'delete'], url_path='manage-shipper-employee')
+    def manage_employee(self, request):
+        # Crear nuevo empleado
+        if request.method == 'POST':
+            serializer = ShipperEmployeeSerializer(data=request.data)
+            if serializer.is_valid():
+                serializer.save()
+                return Response(serializer.data, status=status.HTTP_201_CREATED)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        # Listar empleados
+        elif request.method == 'GET':
+            employees = ShipperEmployeeProfile.objects.select_related('user').all()
+            serializer = ShipperEmployeeSerializer(employees, many=True)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+
+        # Actualizar un empleado
+        elif request.method == 'PUT':
+            employee_id = request.data.get('id')
+            if not employee_id:
+                return Response({'error': 'Missing employee ID'}, status=status.HTTP_400_BAD_REQUEST)
+
+            try:
+                employee = ShipperEmployeeProfile.objects.get(id=employee_id)
+            except ShipperEmployeeProfile.DoesNotExist:
+                return Response({'error': 'Employee not found'}, status=status.HTTP_404_NOT_FOUND)
+
+            serializer = ShipperEmployeeSerializer(employee, data=request.data, partial=True)
+            if serializer.is_valid():
+                serializer.save()
+                return Response(serializer.data, status=status.HTTP_200_OK)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        # Eliminar un empleado
+        elif request.method == 'DELETE':
+            employee_id = request.data.get('id')
+            if not employee_id:
+                return Response({'error': 'Missing employee ID'}, status=status.HTTP_400_BAD_REQUEST)
+
+            try:
+                employee = ShipperEmployeeProfile.objects.get(id=employee_id)
+                if employee.user:
+                    employee.user.delete()  # Elimina también al usuario
+                employee.delete()
+                return Response({'message': 'Shipper employee deleted successfully.'}, status=status.HTTP_204_NO_CONTENT)
+            except ShipperEmployeeProfile.DoesNotExist:
+                return Response({'error': 'Employee not found'}, status=status.HTTP_404_NOT_FOUND)

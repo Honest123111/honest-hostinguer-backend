@@ -11,7 +11,7 @@ from django.core.mail import send_mail
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework import serializers
 from .models import (
-    CarrierAdminProfile, CarrierEmployeeProfile, CarrierUser, Corporation, Customer, AddressO, AddressD, Delay, Load, Role, ShipperAdminProfile, Stop,
+    CarrierAdminProfile, CarrierEmployeeProfile, CarrierUser, Corporation, Customer, AddressO, AddressD, Delay, Load, Role, ShipperAdminProfile, ShipperEmployeeProfile, Stop,
     EquipmentType, Job_Type, OfferHistory, UserPermission, Warning,WarningList,LoadProgress,Truck
 )
 from datetime import datetime
@@ -660,6 +660,73 @@ class ShipperAdminSerializer(serializers.ModelSerializer):
         )
 
         return ShipperAdminProfile.objects.create(user=user, **validated_data)
+
+    def update(self, instance, validated_data):
+        user_data = validated_data.pop('user', {})
+        password1 = validated_data.pop('password1', None)
+        password2 = validated_data.pop('password2', None)
+
+        user = instance.user
+        for attr in ['first_name', 'last_name', 'email']:
+            if attr in user_data:
+                setattr(user, attr, user_data[attr])
+
+        if password1 and password2:
+            if password1 != password2:
+                raise serializers.ValidationError("Passwords do not match.")
+            user.set_password(password1)
+
+        user.save()
+
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+
+        return instance
+    
+
+
+class ShipperEmployeeSerializer(serializers.ModelSerializer):
+    # Campos del usuario (anidados)
+    email = serializers.EmailField(source='user.email')
+    first_name = serializers.CharField(source='user.first_name')
+    last_name = serializers.CharField(source='user.last_name')
+    password1 = serializers.CharField(write_only=True)
+    password2 = serializers.CharField(write_only=True)
+
+    class Meta:
+        model = ShipperEmployeeProfile
+        fields = [
+            'id', 'email', 'first_name', 'last_name', 'password1', 'password2',
+            'position', 'phone_number', 'extension',
+            'status', 'start_date', 'termination_date'
+        ]
+        read_only_fields = ['status', 'start_date']
+
+    def validate(self, data):
+        if data['password1'] != data['password2']:
+            raise serializers.ValidationError("Passwords do not match.")
+        return data
+
+    def create(self, validated_data):
+        user_data = validated_data.pop('user')
+        password = validated_data.pop('password1')
+        validated_data.pop('password2')
+
+        email = user_data['email']
+        if CarrierUser.objects.filter(email=email).exists():
+            raise serializers.ValidationError("A user with this email already exists.")
+
+        user = CarrierUser(
+            username=email,
+            email=email,
+            first_name=user_data.get('first_name'),
+            last_name=user_data.get('last_name')
+        )
+        user.set_password(password)
+        user.save()
+
+        return ShipperEmployeeProfile.objects.create(user=user, **validated_data)
 
     def update(self, instance, validated_data):
         user_data = validated_data.pop('user', {})
