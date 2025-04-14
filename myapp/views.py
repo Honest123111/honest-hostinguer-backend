@@ -1438,7 +1438,9 @@ class CarrierAdminViewSet(viewsets.ViewSet):
 
         # Listar todos los admins
         elif request.method == 'GET':
-            admins = CarrierAdminProfile.objects.select_related('user', 'corporation', 'customer', 'role').all()
+            admins = CarrierAdminProfile.objects.select_related(
+                'user', 'corporation', 'primary_contact', 'role'  # ← corregido
+            ).all()
             serializer = CarrierAdminSerializer(admins, many=True)
             return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -1472,7 +1474,7 @@ class CarrierAdminViewSet(viewsets.ViewSet):
                 admin.delete()
                 return Response({'message': 'Admin deleted successfully'}, status=status.HTTP_204_NO_CONTENT)
             except CarrierAdminProfile.DoesNotExist:
-                return Response({'error': 'Admin not found'}, status=status.HTTP_404_NOT_FOUND) 
+                return Response({'error': 'Admin not found'}, status=status.HTTP_404_NOT_FOUND)
             
 class DebugTestViewSet(viewsets.ViewSet):
 

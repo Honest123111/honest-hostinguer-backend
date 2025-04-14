@@ -511,7 +511,7 @@ class CarrierAdminSerializer(serializers.ModelSerializer):
 
     # Relaciones
     corporation = serializers.PrimaryKeyRelatedField(queryset=Corporation.objects.all())
-    primary_contact = serializers.PrimaryKeyRelatedField(queryset=Customer.objects.all(), allow_null=True)
+    primary_contact = serializers.PrimaryKeyRelatedField(queryset=Customer.objects.all(), allow_null=True, required=False)
 
     class Meta:
         model = CarrierAdminProfile
@@ -521,36 +521,37 @@ class CarrierAdminSerializer(serializers.ModelSerializer):
             'insurance_type', 'insurance_amount', 'insurance_expiration',
             'commodities_excluded', 'cargo_policy_limit', 'trailer_interchange_limit',
             'reefer_breakdown_coverage', 'preferred_lanes', 'insurance_certificate',
-            'number_of_drivers', 'number_of_vehicles', 'equipment_type', 'certifications',
+            'number_of_drivers', 'number_of_vehicles', 'certifications',
             'status', 'start_date', 'termination_date'
         ]
         read_only_fields = ['status', 'start_date']
 
-    def create(self, validated_data):
-        user_data = validated_data.pop('user')
-        password1 = validated_data.pop('password1')
-        password2 = validated_data.pop('password2')
-
+    def validate(self, data):
+        password1 = data.get('password1')
+        password2 = data.get('password2')
         if password1 != password2:
             raise serializers.ValidationError("Passwords do not match.")
+        return data
+
+    def create(self, validated_data):
+        user_data = validated_data.pop('user')
+        password = validated_data.pop('password1')
+        validated_data.pop('password2')
 
         email = user_data['email']
         if CarrierUser.objects.filter(email=email).exists():
             raise serializers.ValidationError("A user with this email already exists.")
 
-        # Crear usuario
         user = CarrierUser.objects.create(
             username=email,
             email=email,
             first_name=user_data['first_name'],
             last_name=user_data['last_name'],
-            password=make_password(password1)
+            password=make_password(password)
         )
 
-        # Obtener o crear rol automáticamente
         role, _ = Role.objects.get_or_create(name='Admin Carrier')
 
-        # Crear el perfil admin
         return CarrierAdminProfile.objects.create(user=user, role=role, **validated_data)
 
     def update(self, instance, validated_data):
@@ -558,7 +559,7 @@ class CarrierAdminSerializer(serializers.ModelSerializer):
         password1 = validated_data.pop('password1', None)
         password2 = validated_data.pop('password2', None)
 
-        # Actualizar usuario
+        # Actualizar campos del usuario
         for attr, value in user_data.items():
             setattr(instance.user, attr, value)
 
@@ -569,7 +570,7 @@ class CarrierAdminSerializer(serializers.ModelSerializer):
 
         instance.user.save()
 
-        # Actualizar perfil
+        # Actualizar el perfil CarrierAdmin
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
         instance.save()
