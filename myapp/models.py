@@ -148,14 +148,12 @@ class CarrierEmployeeProfile(models.Model):
 
 
 class CarrierAdminProfile(models.Model):
-    # Relación con usuario del sistema (obligatorio)
     user = models.OneToOneField(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
         related_name='carrier_admin_profile'
     )
 
-    # Relación con rol "Admin Carrier" (asignado automáticamente si no se da)
     role = models.ForeignKey(
         Role,
         on_delete=models.SET_NULL,
@@ -164,7 +162,6 @@ class CarrierAdminProfile(models.Model):
         related_name='admin_carriers'
     )
 
-    # Corporación (obligatoria) y contacto principal (opcional)
     corporation = models.ForeignKey(
         Corporation,
         on_delete=models.CASCADE,
@@ -178,27 +175,22 @@ class CarrierAdminProfile(models.Model):
         related_name='admin_profiles'
     )
 
-    # Información del seguro (obligatoria)
     insurance_type = models.CharField(max_length=100)
     insurance_amount = models.DecimalField(max_digits=12, decimal_places=2)
     insurance_expiration = models.DateField()
     commodities_excluded = models.TextField(blank=True, null=True)
 
-    # Límites de cobertura (obligatorios)
     cargo_policy_limit = models.DecimalField(max_digits=12, decimal_places=2)
     trailer_interchange_limit = models.DecimalField(max_digits=12, decimal_places=2)
     reefer_breakdown_coverage = models.BooleanField(default=False)
 
-    # Información adicional (opcional)
     preferred_lanes = models.TextField(blank=True, null=True)
     insurance_certificate = models.FileField(upload_to='insurance_certificates/', blank=True, null=True)
 
-    # Estado y fechas
     status = models.CharField(max_length=20, default='Active')
-    start_date = models.DateField(default=timezone.now)  # Se asigna automáticamente
-    termination_date = models.DateField(blank=True, null=True)  # No obligatoria
+    start_date = models.DateField(default=timezone.now().date)  # ✅ Corregido
+    termination_date = models.DateField(blank=True, null=True)
 
-    # Datos adicionales opcionales
     number_of_drivers = models.PositiveIntegerField(default=0)
     number_of_vehicles = models.PositiveIntegerField(default=0)
     certifications = models.TextField(blank=True, null=True)
@@ -210,7 +202,6 @@ class CarrierAdminProfile(models.Model):
         if not self.role:
             self.role = Role.objects.filter(name__iexact='Admin Carrier').first()
         super().save(*args, **kwargs)
-
 
 class AddressO(models.Model):
     id = models.AutoField(primary_key=True)
