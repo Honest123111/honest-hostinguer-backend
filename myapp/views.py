@@ -1645,21 +1645,18 @@ class DispatcherViewSet(viewsets.ViewSet):
 
     @action(detail=False, methods=['post', 'get', 'put', 'delete'], url_path='manage-dispatcher')
     def manage_dispatcher(self, request):
-        # Crear dispatcher
         if request.method == 'POST':
             serializer = DispatcherSerializer(data=request.data)
             if serializer.is_valid():
-                serializer.save()
-                return Response(serializer.data, status=status.HTTP_201_CREATED)
+                dispatcher = serializer.save()
+                return Response(DispatcherSerializer(dispatcher).data, status=status.HTTP_201_CREATED)
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-        # Listar todos los dispatchers
         elif request.method == 'GET':
             dispatchers = DispatcherProfile.objects.select_related('user').all()
             serializer = DispatcherSerializer(dispatchers, many=True)
-            return Response(serializer.data, status=status.HTTP_200_OK)
+            return Response(serializer.data)
 
-        # Actualizar un dispatcher existente
         elif request.method == 'PUT':
             dispatcher_id = request.data.get('id')
             if not dispatcher_id:
@@ -1673,10 +1670,9 @@ class DispatcherViewSet(viewsets.ViewSet):
             serializer = DispatcherSerializer(dispatcher, data=request.data, partial=True)
             if serializer.is_valid():
                 serializer.save()
-                return Response(serializer.data, status=status.HTTP_200_OK)
+                return Response(serializer.data)
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-        # Eliminar un dispatcher
         elif request.method == 'DELETE':
             dispatcher_id = request.data.get('id')
             if not dispatcher_id:

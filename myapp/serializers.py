@@ -849,12 +849,15 @@ class AdminCarrier2Serializer(serializers.ModelSerializer):
         return instance
 
 class DispatcherSerializer(serializers.ModelSerializer):
-    # Campos del usuario vinculado (CarrierUser)
     email = serializers.EmailField(source='user.email')
     first_name = serializers.CharField(source='user.first_name')
     last_name = serializers.CharField(source='user.last_name')
     password1 = serializers.CharField(write_only=True)
     password2 = serializers.CharField(write_only=True)
+
+    # Para que las fechas se devuelvan correctamente como string ISO
+    start_date = serializers.SerializerMethodField()
+    termination_date = serializers.SerializerMethodField()
 
     class Meta:
         model = DispatcherProfile
@@ -865,6 +868,12 @@ class DispatcherSerializer(serializers.ModelSerializer):
             'status', 'start_date', 'termination_date'
         ]
         read_only_fields = ['status', 'start_date']
+
+    def get_start_date(self, obj):
+        return obj.start_date.isoformat() if obj.start_date else None
+
+    def get_termination_date(self, obj):
+        return obj.termination_date.isoformat() if obj.termination_date else None
 
     def validate(self, data):
         if data['password1'] != data['password2']:
@@ -883,8 +892,8 @@ class DispatcherSerializer(serializers.ModelSerializer):
         user = CarrierUser(
             username=email,
             email=email,
-            first_name=user_data.get('first_name'),
-            last_name=user_data.get('last_name')
+            first_name=user_data['first_name'],
+            last_name=user_data['last_name']
         )
         user.set_password(password)
         user.save()
