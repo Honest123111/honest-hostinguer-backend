@@ -550,7 +550,6 @@ class CarrierAdminSerializer(serializers.ModelSerializer):
         user.save()
 
         role, _ = Role.objects.get_or_create(name='Admin Carrier')
-
         return CarrierAdminProfile.objects.create(user=user, role=role, **validated_data)
 
     def update(self, instance, validated_data):
@@ -558,7 +557,6 @@ class CarrierAdminSerializer(serializers.ModelSerializer):
         password1 = validated_data.pop('password1', None)
         password2 = validated_data.pop('password2', None)
 
-        # Actualizar datos del usuario
         user = instance.user
         for attr in ['first_name', 'last_name', 'email']:
             if attr in user_data:
@@ -571,12 +569,23 @@ class CarrierAdminSerializer(serializers.ModelSerializer):
 
         user.save()
 
-        # Actualizar perfil del admin carrier
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
         instance.save()
 
         return instance
+
+    def to_representation(self, instance):
+        rep = super().to_representation(instance)
+        # Asegurar que las fechas sean solo date (no datetime)
+        for date_field in ['start_date', 'termination_date', 'insurance_expiration']:
+            value = getattr(instance, date_field, None)
+            if isinstance(value, datetime):
+                rep[date_field] = value.date().isoformat()
+            elif value:
+                rep[date_field] = value.isoformat()
+        return rep
+    
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     username_field = CarrierUser.EMAIL_FIELD  # Usa email como username
 
