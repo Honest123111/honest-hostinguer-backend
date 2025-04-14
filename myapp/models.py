@@ -238,7 +238,7 @@ class AdminCarrier2(models.Model):
     # --- Seguro ---
     insurance_type = models.CharField(max_length=100)
     insurance_amount = models.DecimalField(max_digits=12, decimal_places=2)
-    insurance_expiration = models.DateField()
+    insurance_expiration = models.DateField(null=True, blank=True)  # ✅ Hacer opcional
     commodities_excluded = models.TextField(blank=True, null=True)
     cargo_policy_limit = models.DecimalField(max_digits=12, decimal_places=2)
     trailer_interchange_limit = models.DecimalField(max_digits=12, decimal_places=2)
