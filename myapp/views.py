@@ -1428,7 +1428,7 @@ class CarrierAdminViewSet(viewsets.ViewSet):
 
     @action(detail=False, methods=['post', 'get', 'put', 'delete'], url_path='manage-carrier-admin')
     def manage_admin(self, request):
-        # Crear nuevo admin
+        # 📌 Crear nuevo admin
         if request.method == 'POST':
             serializer = CarrierAdminSerializer(data=request.data)
             if serializer.is_valid():
@@ -1436,15 +1436,15 @@ class CarrierAdminViewSet(viewsets.ViewSet):
                 return Response(serializer.data, status=status.HTTP_201_CREATED)
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-        # Listar todos los admins
+        # 📌 Listar todos los admins
         elif request.method == 'GET':
             admins = CarrierAdminProfile.objects.select_related(
-                'user', 'corporation', 'primary_contact', 'role'  # ← corregido
+                'user', 'corporation', 'primary_contact', 'role'
             ).all()
             serializer = CarrierAdminSerializer(admins, many=True)
             return Response(serializer.data, status=status.HTTP_200_OK)
 
-        # Actualizar un admin existente
+        # 📌 Actualizar un admin existente
         elif request.method == 'PUT':
             admin_id = request.data.get('id')
             if not admin_id:
@@ -1461,7 +1461,7 @@ class CarrierAdminViewSet(viewsets.ViewSet):
                 return Response(serializer.data, status=status.HTTP_200_OK)
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-        # Eliminar un admin
+        # 📌 Eliminar un admin existente
         elif request.method == 'DELETE':
             admin_id = request.data.get('id')
             if not admin_id:
@@ -1469,13 +1469,13 @@ class CarrierAdminViewSet(viewsets.ViewSet):
 
             try:
                 admin = CarrierAdminProfile.objects.get(id=admin_id)
-                if admin.user:
-                    admin.user.delete()  # Elimina también el usuario relacionado
+                user = admin.user
                 admin.delete()
+                if user:
+                    user.delete()
                 return Response({'message': 'Admin deleted successfully'}, status=status.HTTP_204_NO_CONTENT)
             except CarrierAdminProfile.DoesNotExist:
                 return Response({'error': 'Admin not found'}, status=status.HTTP_404_NOT_FOUND)
-            
 class DebugTestViewSet(viewsets.ViewSet):
 
     @action(detail=False, methods=['get'], url_path='ping')

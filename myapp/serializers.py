@@ -527,9 +527,7 @@ class CarrierAdminSerializer(serializers.ModelSerializer):
         read_only_fields = ['status', 'start_date']
 
     def validate(self, data):
-        password1 = data.get('password1')
-        password2 = data.get('password2')
-        if password1 != password2:
+        if data['password1'] != data['password2']:
             raise serializers.ValidationError("Passwords do not match.")
         return data
 
@@ -542,13 +540,14 @@ class CarrierAdminSerializer(serializers.ModelSerializer):
         if CarrierUser.objects.filter(email=email).exists():
             raise serializers.ValidationError("A user with this email already exists.")
 
-        user = CarrierUser.objects.create(
+        user = CarrierUser(
             username=email,
             email=email,
-            first_name=user_data['first_name'],
-            last_name=user_data['last_name'],
-            password=make_password(password)
+            first_name=user_data.get('first_name'),
+            last_name=user_data.get('last_name')
         )
+        user.set_password(password)
+        user.save()
 
         role, _ = Role.objects.get_or_create(name='Admin Carrier')
 
@@ -559,24 +558,25 @@ class CarrierAdminSerializer(serializers.ModelSerializer):
         password1 = validated_data.pop('password1', None)
         password2 = validated_data.pop('password2', None)
 
-        # Actualizar campos del usuario
-        for attr, value in user_data.items():
-            setattr(instance.user, attr, value)
+        # Actualizar datos del usuario
+        user = instance.user
+        for attr in ['first_name', 'last_name', 'email']:
+            if attr in user_data:
+                setattr(user, attr, user_data[attr])
 
         if password1 and password2:
             if password1 != password2:
                 raise serializers.ValidationError("Passwords do not match.")
-            instance.user.password = make_password(password1)
+            user.set_password(password1)
 
-        instance.user.save()
+        user.save()
 
-        # Actualizar el perfil CarrierAdmin
+        # Actualizar perfil del admin carrier
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
         instance.save()
 
         return instance
-
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     username_field = CarrierUser.EMAIL_FIELD  # Usa email como username
 
