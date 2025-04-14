@@ -513,18 +513,40 @@ class CarrierAdminSerializer(serializers.ModelSerializer):
     corporation = serializers.PrimaryKeyRelatedField(queryset=Corporation.objects.all())
     primary_contact = serializers.PrimaryKeyRelatedField(queryset=Customer.objects.all(), allow_null=True, required=False)
 
+    # Fechas personalizadas
+    start_date = serializers.SerializerMethodField()
+    termination_date = serializers.SerializerMethodField()
+    insurance_expiration = serializers.SerializerMethodField()
+
     class Meta:
         model = CarrierAdminProfile
         fields = [
             'id', 'email', 'password1', 'password2', 'first_name', 'last_name',
             'corporation', 'primary_contact',
-            'insurance_type', 'insurance_amount', 'insurance_expiration',
+            'insurance_type', 'insurance_amount',
+            'insurance_expiration',  # Ya personalizado
             'commodities_excluded', 'cargo_policy_limit', 'trailer_interchange_limit',
             'reefer_breakdown_coverage', 'preferred_lanes', 'insurance_certificate',
             'number_of_drivers', 'number_of_vehicles', 'certifications',
             'status', 'start_date', 'termination_date'
         ]
         read_only_fields = ['status', 'start_date']
+
+    def get_start_date(self, obj):
+        return self._format_date(obj.start_date)
+
+    def get_termination_date(self, obj):
+        return self._format_date(obj.termination_date)
+
+    def get_insurance_expiration(self, obj):
+        return self._format_date(obj.insurance_expiration)
+
+    def _format_date(self, value):
+        if isinstance(value, datetime):
+            return value.date().isoformat()
+        elif value:
+            return value.isoformat()
+        return None
 
     def validate(self, data):
         if data['password1'] != data['password2']:
@@ -573,19 +595,7 @@ class CarrierAdminSerializer(serializers.ModelSerializer):
             setattr(instance, attr, value)
         instance.save()
 
-        return instance
-
-    def to_representation(self, instance):
-        rep = super().to_representation(instance)
-        # Asegurar que las fechas sean solo date (no datetime)
-        for date_field in ['start_date', 'termination_date', 'insurance_expiration']:
-            value = getattr(instance, date_field, None)
-            if isinstance(value, datetime):
-                rep[date_field] = value.date().isoformat()
-            elif value:
-                rep[date_field] = value.isoformat()
-        return rep
-    
+        return instance   
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     username_field = CarrierUser.EMAIL_FIELD  # Usa email como username
 
