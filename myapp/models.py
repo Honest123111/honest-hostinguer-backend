@@ -145,7 +145,8 @@ class CarrierEmployeeProfile(models.Model):
     def __str__(self):
         return f"{self.user.first_name} {self.user.last_name} - {self.position}"
 
-
+def get_today_date():
+    return timezone.now().date()
 
 class CarrierAdminProfile(models.Model):
     user = models.OneToOneField(
@@ -188,7 +189,7 @@ class CarrierAdminProfile(models.Model):
     insurance_certificate = models.FileField(upload_to='insurance_certificates/', blank=True, null=True)
 
     status = models.CharField(max_length=20, default='Active')
-    start_date = models.DateField(default=lambda: timezone.now().date())
+    start_date = models.DateField(default=get_today_date)  # ✅ correcto
     termination_date = models.DateField(blank=True, null=True)
 
     number_of_drivers = models.PositiveIntegerField(default=0)
