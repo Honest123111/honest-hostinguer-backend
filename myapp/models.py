@@ -148,6 +148,7 @@ class CarrierEmployeeProfile(models.Model):
 def get_today_date():
     return timezone.now().date()
 
+
 class CarrierAdminProfile(models.Model):
     user = models.OneToOneField(
         settings.AUTH_USER_MODEL,
@@ -176,22 +177,27 @@ class CarrierAdminProfile(models.Model):
         related_name='admin_profiles'
     )
 
+    # Información del seguro
     insurance_type = models.CharField(max_length=100)
     insurance_amount = models.DecimalField(max_digits=12, decimal_places=2)
     insurance_expiration = models.DateField()
     commodities_excluded = models.TextField(blank=True, null=True)
 
+    # Límites de cobertura
     cargo_policy_limit = models.DecimalField(max_digits=12, decimal_places=2)
     trailer_interchange_limit = models.DecimalField(max_digits=12, decimal_places=2)
     reefer_breakdown_coverage = models.BooleanField(default=False)
 
+    # Información adicional
     preferred_lanes = models.TextField(blank=True, null=True)
     insurance_certificate = models.FileField(upload_to='insurance_certificates/', blank=True, null=True)
 
+    # Estado y fechas
     status = models.CharField(max_length=20, default='Active')
-    start_date = models.DateField(default=get_today_date)  # ✅ correcto
+    start_date = models.DateField(default=get_today_date)
     termination_date = models.DateField(blank=True, null=True)
 
+    # Datos adicionales
     number_of_drivers = models.PositiveIntegerField(default=0)
     number_of_vehicles = models.PositiveIntegerField(default=0)
     certifications = models.TextField(blank=True, null=True)
@@ -202,6 +208,11 @@ class CarrierAdminProfile(models.Model):
     def save(self, *args, **kwargs):
         if not self.role:
             self.role = Role.objects.filter(name__iexact='Admin Carrier').first()
+
+        # Validación extra: convertir datetime a date si viene con hora
+        if isinstance(self.start_date, datetime):
+            self.start_date = self.start_date.date()
+
         super().save(*args, **kwargs)
 
 class AddressO(models.Model):

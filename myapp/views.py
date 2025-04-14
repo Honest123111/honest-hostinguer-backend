@@ -1470,14 +1470,15 @@ class CarrierAdminViewSet(viewsets.ViewSet):
                 return Response({'error': 'Missing admin ID'}, status=status.HTTP_400_BAD_REQUEST)
 
             try:
-                admin = CarrierAdminProfile.objects.get(id=admin_id)
+                admin = CarrierAdminProfile.objects.select_related('user').get(id=admin_id)
                 user = admin.user
                 admin.delete()
-                if user:
-                    user.delete()
+                if user and not CarrierAdminProfile.objects.filter(user=user).exists():
+                    user.delete()  # Solo si no tiene otro perfil relacionado
                 return Response({'message': 'Admin deleted successfully'}, status=status.HTTP_204_NO_CONTENT)
             except CarrierAdminProfile.DoesNotExist:
                 return Response({'error': 'Admin not found'}, status=status.HTTP_404_NOT_FOUND)
+
 class DebugTestViewSet(viewsets.ViewSet):
 
     @action(detail=False, methods=['get'], url_path='ping')

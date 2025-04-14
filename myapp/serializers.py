@@ -513,7 +513,7 @@ class CarrierAdminSerializer(serializers.ModelSerializer):
     corporation = serializers.PrimaryKeyRelatedField(queryset=Corporation.objects.all())
     primary_contact = serializers.PrimaryKeyRelatedField(queryset=Customer.objects.all(), allow_null=True, required=False)
 
-    # Fechas personalizadas
+    # Fechas formateadas
     start_date = serializers.SerializerMethodField()
     termination_date = serializers.SerializerMethodField()
     insurance_expiration = serializers.SerializerMethodField()
@@ -524,13 +524,15 @@ class CarrierAdminSerializer(serializers.ModelSerializer):
             'id', 'email', 'password1', 'password2', 'first_name', 'last_name',
             'corporation', 'primary_contact',
             'insurance_type', 'insurance_amount',
-            'insurance_expiration',  # Ya personalizado
+            'insurance_expiration',
             'commodities_excluded', 'cargo_policy_limit', 'trailer_interchange_limit',
             'reefer_breakdown_coverage', 'preferred_lanes', 'insurance_certificate',
             'number_of_drivers', 'number_of_vehicles', 'certifications',
             'status', 'start_date', 'termination_date'
         ]
         read_only_fields = ['status', 'start_date']
+
+    # --- Métodos para formatear fechas ---
 
     def get_start_date(self, obj):
         return self._format_date(obj.start_date)
@@ -544,15 +546,17 @@ class CarrierAdminSerializer(serializers.ModelSerializer):
     def _format_date(self, value):
         if isinstance(value, datetime):
             return value.date().isoformat()
-        elif value:
+        elif isinstance(value, date):
             return value.isoformat()
         return None
 
+    # --- Validación de contraseñas ---
     def validate(self, data):
         if data['password1'] != data['password2']:
             raise serializers.ValidationError("Passwords do not match.")
         return data
 
+    # --- Crear nuevo CarrierAdmin ---
     def create(self, validated_data):
         user_data = validated_data.pop('user')
         password = validated_data.pop('password1')
@@ -574,6 +578,7 @@ class CarrierAdminSerializer(serializers.ModelSerializer):
         role, _ = Role.objects.get_or_create(name='Admin Carrier')
         return CarrierAdminProfile.objects.create(user=user, role=role, **validated_data)
 
+    # --- Actualizar CarrierAdmin existente ---
     def update(self, instance, validated_data):
         user_data = validated_data.pop('user', {})
         password1 = validated_data.pop('password1', None)
@@ -595,7 +600,8 @@ class CarrierAdminSerializer(serializers.ModelSerializer):
             setattr(instance, attr, value)
         instance.save()
 
-        return instance   
+        return instance
+ 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     username_field = CarrierUser.EMAIL_FIELD  # Usa email como username
 
