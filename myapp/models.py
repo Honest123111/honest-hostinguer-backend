@@ -188,7 +188,7 @@ class CarrierAdminProfile(models.Model):
     insurance_certificate = models.FileField(upload_to='insurance_certificates/', blank=True, null=True)
 
     status = models.CharField(max_length=20, default='Active')
-    start_date = models.DateField(default=timezone.now().date)  # ✅ Corregido
+    start_date = models.DateField(default=lambda: timezone.now().date())
     termination_date = models.DateField(blank=True, null=True)
 
     number_of_drivers = models.PositiveIntegerField(default=0)
