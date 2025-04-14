@@ -24,6 +24,7 @@ from myapp.views import (
     PasswordResetConfirmView,
     PasswordResetRequestView,
     RegisterView,
+    ShipperAdminViewSet,
     UnderReviewLoadsView,
     UserPermissionViewSet,
     WarningViewSet,
@@ -62,6 +63,7 @@ router.register(r'carrier-actions', CarrierUserActionsViewSet, basename='carrier
 router.register(r'debug-test', DebugTestViewSet, basename='debug-test')
 router.register(r'offers', OfferHistoryViewSet, basename='offers')  # ✅ Ruta general para ofertas
 router.register(r'carrier-admins', CarrierAdminViewSet, basename='carrier-admins')  # ✅ Agregado
+router.register(r'shipper-admins', ShipperAdminViewSet, basename='shipper-admin')
 
 urlpatterns = [
     path('', RedirectView.as_view(url='/admin/', permanent=True)),

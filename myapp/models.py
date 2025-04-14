@@ -217,6 +217,52 @@ class AddressO(models.Model):
     def __str__(self):
         return self.address
 
+def get_current_datetime():
+    return timezone.now()
+
+class ShipperAdminProfile(models.Model):
+    # Usuario vinculado
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='shipper_admin_profile'
+    )
+
+    # Información de la empresa
+    company_name = models.CharField(max_length=255)
+    usdot_number = models.CharField(max_length=50, blank=True, null=True)
+    mc_number = models.CharField(max_length=50, blank=True, null=True)
+    available_credit = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
+
+    # Contacto principal
+    primary_contact_name = models.CharField(max_length=100)
+    primary_contact_phone = models.CharField(max_length=20)
+    primary_contact_extension = models.CharField(max_length=10, blank=True, null=True)
+
+    # Identificación del cliente
+    CUSTOMER_ID_CHOICES = [
+        ('customer_id', 'Customer ID'),
+        ('shipper_id', 'Shipper ID'),
+        ('account_number', 'Account #'),
+        ('us_tax_id', 'US Federal TAX ID'),
+        ('us_employer_id', 'US Federal Employer ID #'),
+        ('duns', 'DUNS'),
+        ('scac', 'SCAC'),
+        ('iata', 'IATA'),
+        ('phone_id', 'PHONE ID'),
+        ('aba_routing', 'ABA Routing #'),
+    ]
+    customer_id_type = models.CharField(max_length=50, choices=CUSTOMER_ID_CHOICES)
+    customer_id_value = models.CharField(max_length=100)
+
+    # Estado y fechas
+    status = models.CharField(max_length=20, default='Active')
+    start_date = models.DateTimeField(default=get_current_datetime)  # con hora
+    termination_date = models.DateTimeField(blank=True, null=True)
+
+    def __str__(self):
+        return f"ShipperAdmin: {self.user.email} - {self.company_name}"
+    
 
 class AddressD(models.Model):
     id = models.AutoField(primary_key=True)

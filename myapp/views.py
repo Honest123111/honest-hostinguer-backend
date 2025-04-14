@@ -22,7 +22,7 @@ from django.core.files.storage import default_storage
 from django.core.files.base import ContentFile
 from .utils import read_new_load_excel, read_spot_load_excel, read_truck_availability_excel
 from django.shortcuts import render, redirect
-from .models import CarrierAdminProfile, CarrierEmployeeProfile, CarrierUser, Corporation, Delay, UserPermission, Warning
+from .models import CarrierAdminProfile, CarrierEmployeeProfile, CarrierUser, Corporation, Delay, ShipperAdminProfile, UserPermission, Warning
 from .models import Customer, Load, Stop, EquipmentType, OfferHistory,WarningList,Truck
 from .serializers import (
     AssignRoleSerializer,
@@ -36,6 +36,7 @@ from .serializers import (
     LoadSerializer,
     PasswordResetRequestSerializer,
     RegisterSerializer,
+    ShipperAdminSerializer,
     StopSerializer,
     EquipmentTypeSerializer,
     OfferHistorySerializer,
@@ -1486,3 +1487,50 @@ class DebugTestViewSet(viewsets.ViewSet):
 
 class CustomTokenObtainPairView(TokenObtainPairView):
     serializer_class = CustomTokenObtainPairSerializer
+
+
+class ShipperAdminViewSet(viewsets.ViewSet):
+
+    @action(detail=False, methods=['post', 'get', 'put', 'delete'], url_path='manage-shipper-admin')
+    def manage_shipper_admin(self, request):
+        if request.method == 'POST':
+            serializer = ShipperAdminSerializer(data=request.data)
+            if serializer.is_valid():
+                serializer.save()
+                return Response(serializer.data, status=status.HTTP_201_CREATED)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        elif request.method == 'GET':
+            shippers = ShipperAdminProfile.objects.select_related('user').all()
+            serializer = ShipperAdminSerializer(shippers, many=True)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+
+        elif request.method == 'PUT':
+            admin_id = request.data.get('id')
+            if not admin_id:
+                return Response({'error': 'Missing admin ID'}, status=status.HTTP_400_BAD_REQUEST)
+
+            try:
+                shipper_admin = ShipperAdminProfile.objects.get(id=admin_id)
+            except ShipperAdminProfile.DoesNotExist:
+                return Response({'error': 'Shipper Admin not found'}, status=status.HTTP_404_NOT_FOUND)
+
+            serializer = ShipperAdminSerializer(shipper_admin, data=request.data, partial=True)
+            if serializer.is_valid():
+                serializer.save()
+                return Response(serializer.data, status=status.HTTP_200_OK)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        elif request.method == 'DELETE':
+            admin_id = request.data.get('id')
+            if not admin_id:
+                return Response({'error': 'Missing admin ID'}, status=status.HTTP_400_BAD_REQUEST)
+
+            try:
+                shipper_admin = ShipperAdminProfile.objects.get(id=admin_id)
+                if shipper_admin.user:
+                    shipper_admin.user.delete()
+                shipper_admin.delete()
+                return Response({'message': 'Shipper Admin deleted successfully'}, status=status.HTTP_204_NO_CONTENT)
+            except ShipperAdminProfile.DoesNotExist:
+                return Response({'error': 'Shipper Admin not found'}, status=status.HTTP_404_NOT_FOUND)
