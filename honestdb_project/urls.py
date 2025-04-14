@@ -20,6 +20,7 @@ from myapp.views import (
     CustomTokenObtainPairView,
     DebugTestViewSet,
     DelayView,
+    DispatcherViewSet,
     ExcelUploadView,
     LoadStopsView,
     PasswordResetConfirmView,
@@ -68,6 +69,7 @@ router.register(r'carrier-admins', CarrierAdminViewSet, basename='carrier-admins
 router.register(r'shipper-admins', ShipperAdminViewSet, basename='shipper-admin')
 router.register(r'shipper-employees', ShipperEmployeeViewSet, basename='shipper-employees')
 router.register(r'admincarrier2', AdminCarrier2ViewSet, basename='admincarrier2')
+router.register(r'dispatchers', DispatcherViewSet, basename='dispatchers')
 
 urlpatterns = [
     path('', RedirectView.as_view(url='/admin/', permanent=True)),

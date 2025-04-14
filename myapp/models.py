@@ -346,6 +346,27 @@ class ShipperEmployeeProfile(models.Model):
         # Puedes agregar lógica futura si deseas asignar algo adicionalmente
         super().save(*args, **kwargs)
 
+class DispatcherProfile(models.Model):
+    # Relación con el usuario autenticado (CarrierUser)
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='dispatcher_profile'
+    )
+
+    # Información personal (referenciada desde user)
+    phone_number = models.CharField(max_length=20)
+    extension = models.CharField(max_length=10, blank=True, null=True)
+    position = models.CharField(max_length=100, default='Dispatcher')
+
+    # Estado y fechas automáticas
+    status = models.CharField(max_length=20, default='Active')
+    start_date = models.DateField(default=get_today_date)
+    termination_date = models.DateField(blank=True, null=True)
+
+    def __str__(self):
+        return f"{self.user.get_full_name()} - Dispatcher"
+
 class AddressD(models.Model):
     id = models.AutoField(primary_key=True)
     zip_code = models.IntegerField()

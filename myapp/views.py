@@ -22,7 +22,7 @@ from django.core.files.storage import default_storage
 from django.core.files.base import ContentFile
 from .utils import read_new_load_excel, read_spot_load_excel, read_truck_availability_excel
 from django.shortcuts import render, redirect
-from .models import AdminCarrier2, CarrierAdminProfile, CarrierEmployeeProfile, CarrierUser, Corporation, Delay, ShipperAdminProfile, ShipperEmployeeProfile, UserPermission, Warning
+from .models import AdminCarrier2, CarrierAdminProfile, CarrierEmployeeProfile, CarrierUser, Corporation, Delay, DispatcherProfile, ShipperAdminProfile, ShipperEmployeeProfile, UserPermission, Warning
 from .models import Customer, Load, Stop, EquipmentType, OfferHistory,WarningList,Truck
 from .serializers import (
     AdminCarrier2Serializer,
@@ -34,6 +34,7 @@ from .serializers import (
     CustomTokenObtainPairSerializer,
     CustomerSerializer,
     DelaySerializer,
+    DispatcherSerializer,
     LoadSerializer,
     PasswordResetRequestSerializer,
     RegisterSerializer,
@@ -1638,3 +1639,55 @@ class AdminCarrier2ViewSet(viewsets.ViewSet):
                 return Response({'message': 'Carrier deleted successfully.'}, status=status.HTTP_204_NO_CONTENT)
             except AdminCarrier2.DoesNotExist:
                 return Response({'error': 'Carrier not found'}, status=status.HTTP_404_NOT_FOUND)
+
+
+class DispatcherViewSet(viewsets.ViewSet):
+
+    @action(detail=False, methods=['post', 'get', 'put', 'delete'], url_path='manage-dispatcher')
+    def manage_dispatcher(self, request):
+        # Crear dispatcher
+        if request.method == 'POST':
+            serializer = DispatcherSerializer(data=request.data)
+            if serializer.is_valid():
+                serializer.save()
+                return Response(serializer.data, status=status.HTTP_201_CREATED)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        # Listar todos los dispatchers
+        elif request.method == 'GET':
+            dispatchers = DispatcherProfile.objects.select_related('user').all()
+            serializer = DispatcherSerializer(dispatchers, many=True)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+
+        # Actualizar un dispatcher existente
+        elif request.method == 'PUT':
+            dispatcher_id = request.data.get('id')
+            if not dispatcher_id:
+                return Response({'error': 'Missing dispatcher ID'}, status=status.HTTP_400_BAD_REQUEST)
+
+            try:
+                dispatcher = DispatcherProfile.objects.get(id=dispatcher_id)
+            except DispatcherProfile.DoesNotExist:
+                return Response({'error': 'Dispatcher not found'}, status=status.HTTP_404_NOT_FOUND)
+
+            serializer = DispatcherSerializer(dispatcher, data=request.data, partial=True)
+            if serializer.is_valid():
+                serializer.save()
+                return Response(serializer.data, status=status.HTTP_200_OK)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        # Eliminar un dispatcher
+        elif request.method == 'DELETE':
+            dispatcher_id = request.data.get('id')
+            if not dispatcher_id:
+                return Response({'error': 'Missing dispatcher ID'}, status=status.HTTP_400_BAD_REQUEST)
+
+            try:
+                dispatcher = DispatcherProfile.objects.get(id=dispatcher_id)
+                user = dispatcher.user
+                dispatcher.delete()
+                if user:
+                    user.delete()
+                return Response({'message': 'Dispatcher deleted successfully.'}, status=status.HTTP_204_NO_CONTENT)
+            except DispatcherProfile.DoesNotExist:
+                return Response({'error': 'Dispatcher not found'}, status=status.HTTP_404_NOT_FOUND)
