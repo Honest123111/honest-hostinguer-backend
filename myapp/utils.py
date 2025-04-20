@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 from .models import Load, AddressO, AddressD, Customer, ProcessedEmail, Stop
 import requests
 import time
+import logging
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
@@ -47,17 +48,25 @@ def send_email(subject, body, recipient):
     except Exception as e:
         print(f"Error sending email: {e}")
 
+logger = logging.getLogger(__name__)
+
 # Function to fetch coordinates using Nominatim with Google Maps as backup
 def get_coordinates(address, retries=3, delay=5):
     """
-    Obtiene las coordenadas y detalles de la dirección usando Nominatim.
-    Si no se encuentra, usa Google Maps API como respaldo.
+    Obtiene las coordenadas y detalles de la dirección.
+    Usa primero Google Maps API y, si falla, intenta con Nominatim como respaldo.
     """
-    # Intentar primero con Nominatim
-    query = address
+    # Intentar primero con Google Maps
+    coords = get_coordinates_from_google(address)
+    if coords["coordinates"] != "Unknown":
+        return coords
+
+    # Si Google Maps falla, usar Nominatim con reintentos
+    logger.warning(f"Google Maps API falló para '{address}', intentando con Nominatim...")
+
     url_nominatim = "https://nominatim.openstreetmap.org/search"
-    params_nominatim = {"q": query, "format": "json", "addressdetails": 1, "limit": 1}
-    headers = {"User-Agent": "YourAppName/1.0"}
+    params_nominatim = {"q": address, "format": "json", "addressdetails": 1, "limit": 1}
+    headers = {"User-Agent": "HonestApp/1.0"}
 
     for attempt in range(retries):
         try:
@@ -74,21 +83,24 @@ def get_coordinates(address, retries=3, delay=5):
                     "city": result.get("address", {}).get("city", "Unknown"),
                 }
             else:
-                print(f"Nominatim could not find coordinates for the address: {query}")
+                logger.warning(f"Nominatim no encontró resultados para '{address}'")
         except requests.exceptions.RequestException as e:
-            print(f"Attempt {attempt + 1} failed to get coordinates with Nominatim for {query}: {e}")
+            logger.error(f"[{attempt + 1}/{retries}] Error Nominatim para '{address}': {e}")
             time.sleep(delay)
 
-    # Si Nominatim falla, usar Google Maps API
-    print(f"Nominatim failed for {query}. Switching to Google Maps API.")
-    return get_coordinates_from_google(address)
-
+    logger.error(f"No se pudo obtener coordenadas para '{address}' con ninguna API.")
+    return {
+        "coordinates": "Unknown",
+        "zip": "Unknown",
+        "state": "Unknown",
+        "city": "Unknown",
+    }
 
 def get_coordinates_from_google(address):
     """
-    Obtiene coordenadas usando Google Maps Geocoding API como respaldo.
+    Obtiene coordenadas usando Google Maps Geocoding API.
     """
-    google_api_key = "AIzaSyDbt0MU_QRza_GErVNPhbsTL89KL3pAR-w"
+    google_api_key = "TU_API_KEY_AQUI"  # reemplaza por tu clave segura
     url_google = "https://maps.googleapis.com/maps/api/geocode/json"
 
     try:
@@ -100,31 +112,38 @@ def get_coordinates_from_google(address):
         if data.get("status") == "OK" and data.get("results"):
             result = data["results"][0]
             location = result["geometry"]["location"]
-            address_components = {comp["types"][0]: comp["long_name"] for comp in result["address_components"]}
-            print(f"{location['lat']},{location['lng']}")
+
+            # Mapeo de componentes de dirección
+            address_components = {}
+            for comp in result["address_components"]:
+                for comp_type in comp["types"]:
+                    address_components[comp_type] = comp["long_name"]
+
             return {
                 "coordinates": f"{location['lat']},{location['lng']}",
                 "zip": address_components.get("postal_code", "Unknown"),
                 "state": address_components.get("administrative_area_level_1", "Unknown"),
-                "city": address_components.get("locality", "Unknown"),
+                "city": address_components.get("locality", address_components.get("administrative_area_level_2", "Unknown"))
             }
+
         else:
-            print(f"Google Maps API failed for address {address}: {data.get('status')}")
+            logger.warning(f"Google Maps no devolvió resultados válidos para '{address}': {data.get('status')}")
             return {
                 "coordinates": "Unknown",
                 "zip": "Unknown",
                 "state": "Unknown",
                 "city": "Unknown",
             }
+
     except requests.exceptions.RequestException as e:
-        print(f"Google Maps API error: {e}")
+        logger.error(f"Error con Google Maps API para '{address}': {e}")
         return {
             "coordinates": "Unknown",
             "zip": "Unknown",
             "state": "Unknown",
             "city": "Unknown",
         }
-
+    
 
 def extract_amazon_truck_codes_from_email(body):
     """
