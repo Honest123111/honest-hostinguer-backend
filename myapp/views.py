@@ -90,51 +90,56 @@ class CustomerViewSet(viewsets.ModelViewSet):
         customers = Customer.objects.filter(corporation_id=corporation_id)
         serializer = self.get_serializer(customers, many=True)
         return Response(serializer.data)
-
-# Load ViewSet
 class LoadViewSet(viewsets.ModelViewSet):
     serializer_class = LoadSerializer
     permission_classes = [IsAuthenticated]
+
     def get_queryset(self):
         """
         Obtiene las cargas abiertas que cumplen con las reglas y luego las que no tienen usuario asignado.
         """
-        # Filtrar cargas abiertas
-        base_queryset = Load.objects.filter(is_closed=False,under_review=False).prefetch_related('stops')
+        base_queryset = Load.objects.filter(is_closed=False, under_review=False).prefetch_related('stops')
 
-        # 1. Cargas que cumplen las reglas existentes
+        # 1. Cargas que cumplen con estados válidos
         valid_loads = base_queryset.filter(status__in=['pending', 'in_progress'])
 
-        # 2. Cargas sin usuario asignado
-        unassigned_loads = base_queryset.filter(
-            assigned_user__isnull=True
-        ).exclude(idmmload__in=valid_loads.values_list('idmmload', flat=True))
+        # 2. Cargas sin usuario asignado, excluyendo las válidas para no duplicar
+        unassigned_loads = base_queryset.filter(assigned_user__isnull=True).exclude(
+            idmmload__in=valid_loads.values_list('idmmload', flat=True)
+        )
 
-        # Combinar ambos conjuntos de cargas en una lista
+        # Combinar ambos conjuntos
         combined_loads = list(valid_loads) + list(unassigned_loads)
-
-        # Devolver los objetos ordenados si es necesario
         return combined_loads
 
     def get_object(self):
         """
-        Obtiene un objeto Load específico basado en la clave primaria.
+        Obtiene un objeto Load específico basado en la clave primaria (idmmload).
         """
-        # Asegúrate de que la clave primaria coincida con tu modelo (id o idmmload)
         return get_object_or_404(Load, pk=self.kwargs['pk'])
+
+    def create(self, request, *args, **kwargs):
+        """
+        Crea una nueva carga con manejo detallado de errores de validación.
+        """
+        serializer = self.get_serializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        self.perform_create(serializer)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
 
     def update(self, request, *args, **kwargs):
         """
         Actualiza una carga específica.
         """
         partial = kwargs.pop('partial', False)
-        instance = self.get_object()  # Usa el método get_object para obtener la instancia
+        instance = self.get_object()
         serializer = self.get_serializer(instance, data=request.data, partial=partial)
         serializer.is_valid(raise_exception=True)
         self.perform_update(serializer)
-
         return Response(serializer.data)
-    
+
     @action(detail=False, methods=['get'], url_path='under-review')
     def under_review_loads(self, request):
         """

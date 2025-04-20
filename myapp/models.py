@@ -261,7 +261,6 @@ class AdminCarrier2(models.Model):
     def __str__(self):
         return f"Carrier: {self.company_name} (USDOT: {self.usdot_number})"
 
-
 class AddressO(models.Model):
     id = models.AutoField(primary_key=True)
     zip_code = models.IntegerField()

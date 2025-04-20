@@ -55,6 +55,7 @@ class LoadSerializer(serializers.ModelSerializer):
     destiny = AddressDSerializer()
     customer = serializers.PrimaryKeyRelatedField(queryset=Customer.objects.all())
     stops = StopSerializer(many=True, read_only=True)
+
     equipment = serializers.PrimaryKeyRelatedField(
         queryset=EquipmentType.objects.all(), allow_null=True, required=False
     )
@@ -68,12 +69,12 @@ class LoadSerializer(serializers.ModelSerializer):
     )
 
     # Additional fields
-    status = serializers.CharField(required=False, default='pending')  # Default 'pending'
+    status = serializers.CharField(required=False, default='pending')
     priority = serializers.ChoiceField(choices=Load.PRIORITY_CHOICES, default='medium')
     tracking_status = serializers.ChoiceField(choices=Load.TRACKING_CHOICES, required=False, default='not_started')
     expiration_date = serializers.DateTimeField(required=False, allow_null=True)
     current_location = serializers.CharField(required=False, allow_null=True)
-    is_closed = serializers.BooleanField(required=False, default=False) 
+    is_closed = serializers.BooleanField(required=False, default=False)
     payment_status = serializers.ChoiceField(
         choices=[('pending', 'Pending'), ('paid', 'Paid'), ('failed', 'Failed')],
         default='pending',
@@ -94,12 +95,13 @@ class LoadSerializer(serializers.ModelSerializer):
         representation['destiny'] = AddressDSerializer(instance.destiny).data
         representation['customer'] = CustomerSerializer(instance.customer).data
         representation['stops'] = StopSerializer(instance.stops.all(), many=True).data
-        representation['is_closed'] = instance.is_closed 
+
         if instance.equipment:
             representation['equipment'] = {
                 'id': instance.equipment.idmmequipment,
                 'name': instance.equipment.name
             }
+
         representation['warnings'] = [
             {'id': warning.id, 'description': warning.description}
             for warning in instance.warnings.all()
@@ -116,19 +118,15 @@ class LoadSerializer(serializers.ModelSerializer):
         stops_data = validated_data.pop('stops', [])
         warnings_data = validated_data.pop('warnings', [])
 
-        # Create related objects
         origin = AddressO.objects.create(**origin_data)
         destiny = AddressD.objects.create(**destiny_data)
-
-        # Create the load
         load = Load.objects.create(origin=origin, destiny=destiny, **validated_data)
 
-        # Add stops to the load
-        for stop_data in stops_data:
-            Stop.objects.create(load=load, **stop_data)
+        if stops_data:
+            Stop.objects.bulk_create([Stop(load=load, **stop) for stop in stops_data])
 
-        # Set warnings for the load
-        load.warnings.set(warnings_data)
+        if warnings_data:
+            load.warnings.set(warnings_data)
 
         return load
 
@@ -151,17 +149,16 @@ class LoadSerializer(serializers.ModelSerializer):
                 setattr(instance.destiny, attr, value)
             instance.destiny.save()
 
-        # Update stops
-        if stops_data:
-            instance.stops.all().delete()  # Clear existing stops
-            for stop_data in stops_data:
-                Stop.objects.create(load=instance, **stop_data)
+        # Replace stops
+        if stops_data is not None:
+            instance.stops.all().delete()
+            Stop.objects.bulk_create([Stop(load=instance, **stop) for stop in stops_data])
 
-        # Update warnings
-        if warnings_data:
+        # Replace warnings
+        if warnings_data is not None:
             instance.warnings.set(warnings_data)
 
-        # Update other fields
+        # Update remaining fields
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
         instance.save()
@@ -169,26 +166,27 @@ class LoadSerializer(serializers.ModelSerializer):
         return instance
 
     def validate(self, data):
-        """Validaciones personalizadas."""
+        """Custom validations."""
+        errors = {}
 
-        # Validación para asegurar que la fecha de expiración no esté en el pasado
+        # Expiration date must not be in the past
         if data.get('expiration_date') and data['expiration_date'] < timezone.now():
-            raise serializers.ValidationError("Expiration date cannot be in the past.")
+            errors['expiration_date'] = ['Expiration date cannot be in the past.']
 
-        # Validación para asegurar que el usuario no tenga más cargas asignadas que camiones
+        # Assigned user: validate load capacity
         assigned_user = data.get('assigned_user')
         if assigned_user:
-            # Contar las cargas en estado 'pending' o 'in_progress'
             assigned_loads_count = Load.objects.filter(
                 assigned_user=assigned_user,
                 status__in=['pending', 'in_progress']
             ).count()
+            if assigned_user.trucks.count() <= assigned_loads_count:
+                errors['assigned_user'] = [
+                    'The user cannot be assigned more loads than the number of trucks they own.'
+                ]
 
-            # Comparar con la cantidad de camiones registrados por el usuario
-            if assigned_loads_count >= assigned_user.trucks.count():
-                raise serializers.ValidationError(
-                    "The user cannot be assigned more loads than the number of trucks they own."
-                )
+        if errors:
+            raise serializers.ValidationError(errors)
 
         return data
 
