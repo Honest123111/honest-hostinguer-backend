@@ -1023,6 +1023,8 @@ class CarrierUserViewSet(viewsets.ModelViewSet):
         user.delete_user()
         return Response({"message": "Usuario eliminado exitosamente"}, status=204)
 
+logger = logging.getLogger(__name__)
+
 LOCATION_MAPPING = {
     "ONT2": "San Bernard, ONT2, CA",
     "ONT9": "Redlands, ONT9, CA",
@@ -1112,28 +1114,41 @@ LOCATION_MAPPING = {
     "XCA2": "La Puente, XCA2,CA"
 }
 
-
 def get_code_from_line(line):
-    """
-    Intenta extraer un código conocido desde la línea.
-    """
     for code in LOCATION_MAPPING.keys():
         if code in line:
             return code
     m = re.search(r"([A-Z]{3,4}\d+)", line)
-    if m:
-        return m.group(1)
-    return None
+    return m.group(1) if m else None
 
 def get_numeric_zip(zip_str):
-    """
-    Dado un código postal en forma de cadena, extrae solo los dígitos y lo convierte a entero.
-    Si no se encuentran dígitos, devuelve 0.
-    """
     if zip_str is None:
         return 0
     digits = ''.join(filter(str.isdigit, zip_str))
     return int(digits) if digits else 0
+
+def clean_text(text):
+    return re.sub(r'[\ud800-\udfff]', '', text)
+
+def get_address_by_code(code, address_type='origin'):
+    try:
+        normalized_address = LOCATION_MAPPING.get(code, code)
+        Model = AddressO if address_type == 'origin' else AddressD
+
+        address_obj = Model.objects.filter(address__icontains=normalized_address).first()
+        if not address_obj:
+            address_obj = Model.objects.create(
+                zip_code=0,
+                address=normalized_address,
+                state="Unknown",
+                coordinates="0,0"
+            )
+        return address_obj
+
+    except Exception as e:
+        tb = traceback.format_exc()
+        logger.error(f"\u274c Error en get_address_by_code(code='{code}', type='{address_type}'): {e}\n{tb}")
+        return None
 
 class UploadLoadImageView(APIView):
     permission_classes = [IsAuthenticated]
@@ -1144,145 +1159,125 @@ class UploadLoadImageView(APIView):
         if not file:
             return Response({"error": "No image provided"}, status=400)
 
-        # Leer la imagen en memoria
-        np_img = np.frombuffer(file.read(), np.uint8)
-        img = cv2.imdecode(np_img, cv2.IMREAD_COLOR)
-
-        # Convertir a escala de grises y mejorar contraste
-        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        _, thresh = cv2.threshold(gray, 120, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-
-        # Extraer texto usando EasyOCR
-        reader = easyocr.Reader(['en', 'es'])
-        extracted_data = reader.readtext(thresh, detail=0)
-        extracted_text = "\n".join(extracted_data)
-        print(f"\ud83d\udcdc **Extracted Text:**\n{extracted_text}")
-
-        # Extraer las cargas a partir del texto obtenido
-        loads_data, failed_lines = self.extract_loads(extracted_text)
-        if not loads_data:
-            return Response({
-                "error": "Could not extract valid data",
-                "failed_lines": failed_lines,
-                "extracted_text": extracted_text
-            }, status=400)
-
-        created_loads = []
-        errors = []
-
-        # Obtener o crear el Customer "Amazon US" con su Corporation
         try:
-            amazon_customer = Customer.objects.get(name="Amazon US")
-        except Customer.DoesNotExist:
-            corporation, _ = Corporation.objects.get_or_create(
-                name="Amazon US Corporation",
-                defaults={
-                    "dot_number": "000000",
-                    "address": "Default Address",
-                    "city": "Default City",
-                    "state": "Default State",
-                    "zip_code": "00000",
-                    "phone_number": "0000000000",
-                    "extension": "000"
-                }
-            )
-            amazon_customer = Customer.objects.create(
-                name="Amazon US",
-                email="amazon@amazon.com",
-                corporation=corporation,
-                phone_number="0000000000"
-            )
+            np_img = np.frombuffer(file.read(), np.uint8)
+            img = cv2.imdecode(np_img, cv2.IMREAD_COLOR)
+            gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+            _, thresh = cv2.threshold(gray, 120, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
 
-        for load_data in loads_data:
-            origin_code = load_data.get("origin")
-            destination_code = load_data.get("destination")
-            if not origin_code or not destination_code:
-                errors.append({"error": f"Invalid location codes extracted: {origin_code} → {destination_code}"})
-                continue
+            reader = easyocr.Reader(['en', 'es'])
+            extracted_data = reader.readtext(thresh, detail=0)
+            extracted_text = "\n".join(extracted_data)
+            extracted_text = clean_text(extracted_text)
+            logger.info(f"\ud83d\udcdc Extracted OCR Text:\n{extracted_text}")
+
+            loads_data, failed_lines = self.extract_loads(extracted_text)
+
+            if not loads_data:
+                return Response({
+                    "error": "Could not extract valid data",
+                    "failed_lines": failed_lines,
+                    "extracted_text": extracted_text
+                }, status=400)
+
+            created_loads = []
+            errors = []
 
             try:
-                normalized_origin = LOCATION_MAPPING.get(origin_code, origin_code)
-                origin_coords = get_coordinates(origin_code)
-                origin_address = AddressO.objects.create(
-                    zip_code=get_numeric_zip(origin_coords["zip"]),
-                    address=normalized_origin,
-                    state=origin_coords["state"],
-                    coordinates=origin_coords["coordinates"]
+                amazon_customer = Customer.objects.get(name="Amazon US")
+            except Customer.DoesNotExist:
+                corporation, _ = Corporation.objects.get_or_create(
+                    name="Amazon US Corporation",
+                    defaults={
+                        "dot_number": "000000",
+                        "address": "Default Address",
+                        "city": "Default City",
+                        "state": "Default State",
+                        "zip_code": "00000",
+                        "phone_number": "0000000000",
+                        "extension": "000"
+                    }
+                )
+                amazon_customer = Customer.objects.create(
+                    name="Amazon US",
+                    email="amazon@amazon.com",
+                    corporation=corporation,
+                    phone_number="0000000000"
                 )
 
-                normalized_destination = LOCATION_MAPPING.get(destination_code, destination_code)
-                destination_coords = get_coordinates(normalized_destination)
-                destination_address = AddressD.objects.create(
-                    zip_code=get_numeric_zip(destination_coords["zip"]),
-                    address=normalized_destination,
-                    state=destination_coords["state"],
-                    coordinates=destination_coords["coordinates"]
-                )
-            except Exception as e:
-                errors.append({
-                    "error": str(e),
-                    "origin": origin_code,
-                    "destination": destination_code
-                })
-                continue
+            for load_data in loads_data:
+                origin_code = load_data.get("origin")
+                destination_code = load_data.get("destination")
 
-            try:
-                new_load = Load.objects.create(
-                    origin=origin_address,
-                    destiny=destination_address,
-                    loaded_miles=int(load_data.get("loaded_miles", 0)),
-                    equipment_type=load_data.get("equipment_type", "Unknown"),
-                    offer=float(load_data.get("offer", 0)),
-                    customer=amazon_customer,
-                    commodity="Default Commodity",
-                    classifications_and_certifications="None",
-                    under_review=True
-                )
+                if not origin_code or not destination_code:
+                    errors.append({"error": f"Invalid location codes extracted: {origin_code} → {destination_code}"})
+                    continue
 
-                created_loads.append({
-                    "id": new_load.idmmload,
-                    "origin": origin_code,
-                    "destination": destination_code,
-                    "loaded_miles": new_load.loaded_miles,
-                    "equipment_type": new_load.equipment_type,
-                    "offer": str(new_load.offer),
-                })
-            except Exception as e:
-                tb = traceback.format_exc()
-                errors.append({
-                    "error": str(e),
-                    "traceback": tb,
-                    "data": load_data
-                })
-                continue
+                try:
+                    origin_address = get_address_by_code(origin_code, 'origin')
+                    destination_address = get_address_by_code(destination_code, 'destination')
 
-        if not created_loads:
+                    origin_coords = get_coordinates(origin_code)
+                    destination_coords = get_coordinates(destination_code)
+
+                    if origin_address:
+                        origin_address.zip_code = get_numeric_zip(origin_coords.get("zip"))
+                        origin_address.state = origin_coords.get("state")
+                        origin_address.coordinates = origin_coords.get("coordinates")
+                        origin_address.save()
+
+                    if destination_address:
+                        destination_address.zip_code = get_numeric_zip(destination_coords.get("zip"))
+                        destination_address.state = destination_coords.get("state")
+                        destination_address.coordinates = destination_coords.get("coordinates")
+                        destination_address.save()
+
+                    new_load = Load.objects.create(
+                        origin=origin_address,
+                        destiny=destination_address,
+                        loaded_miles=int(load_data.get("loaded_miles", 0)),
+                        equipment_type=load_data.get("equipment_type", "Unknown"),
+                        offer=float(load_data.get("offer", 0)),
+                        customer=amazon_customer,
+                        commodity="Default Commodity",
+                        classifications_and_certifications="None",
+                        under_review=True
+                    )
+
+                    created_loads.append({
+                        "id": new_load.idmmload,
+                        "origin": origin_code,
+                        "destination": destination_code,
+                        "loaded_miles": new_load.loaded_miles,
+                        "equipment_type": new_load.equipment_type,
+                        "offer": str(new_load.offer),
+                    })
+
+                except Exception as e:
+                    tb = traceback.format_exc()
+                    errors.append({"error": str(e), "traceback": tb, "data": load_data})
+
+            if not created_loads:
+                return Response({
+                    "error": "No valid loads created",
+                    "errors": errors,
+                    "failed_lines": failed_lines,
+                    "extracted_text": extracted_text
+                }, status=400)
+
             return Response({
-                "error": "No valid loads created",
+                "message": "Loads created successfully",
+                "loads": created_loads,
                 "errors": errors,
-                "failed_lines": failed_lines,
-                "extracted_text": extracted_text
-            }, status=400)
+                "failed_lines": failed_lines
+            }, status=201)
 
-        return Response({
-            "message": "Loads created successfully",
-            "loads": created_loads,
-            "errors": errors,
-            "failed_lines": failed_lines
-        }, status=201)
-    
+        except Exception as e:
+            tb = traceback.format_exc()
+            logger.error(f"\u274c Error general en UploadLoadImageView: {e}\n{tb}")
+            return Response({"error": str(e), "traceback": tb}, status=500)
+
     def extract_loads(self, text):
-        """
-        Extrae datos de cargas a partir del texto del OCR.
-        Se asume que cada bloque de carga sigue el siguiente orden:
-          1. Origen
-          2. Destino
-          3. Millas cargadas (ej.: "41.5 mi")
-          4. Oferta (ej.: "$196.58")
-          5. Hasta 4 líneas adicionales donde se busca:
-             - equipment_type (línea que contenga "Trailer" o "Reefer")
-             - action_type (línea que contenga "Live/Drop", "Drop" o "Live")
-        """
         lines = [line.strip() for line in text.split("\n") if line.strip()]
         loads = []
         failed_lines = []
@@ -1343,56 +1338,11 @@ class UploadLoadImageView(APIView):
         if not loads:
             failed_lines = lines
 
-        print("✅ Datos extraídos:", loads)
+        logger.info(f"\u2705 Datos extraídos: {loads}")
         if failed_lines:
-            print("❌ Líneas fallidas:", failed_lines)
+            logger.warning(f"\u274c Líneas fallidas: {failed_lines}")
 
         return loads, failed_lines
-    
-def get_address_by_code(code, address_type='origin'):
-    """
-    Dado un código (por ejemplo, "ONT2"), utiliza el diccionario LOCATION_MAPPING para
-    obtener una dirección normalizada y busca (usando una comparación insensible a mayúsculas)
-    una dirección que la contenga en el campo 'address'. Si no se encuentra, la crea con
-    valores predeterminados.
-    """
-    try:
-        normalized_address = LOCATION_MAPPING.get(code, code)
-
-        if address_type == 'origin':
-            address_obj = AddressO.objects.filter(address__icontains=normalized_address).first()
-            if not address_obj:
-                address_obj = AddressO.objects.create(
-                    zip_code=0,
-                    address=normalized_address,
-                    state="Unknown",
-                    coordinates="0,0"
-                )
-            return address_obj
-
-        elif address_type == 'destination':
-            address_obj = AddressD.objects.filter(address__icontains=normalized_address).first()
-            if not address_obj:
-                address_obj = AddressD.objects.create(
-                    zip_code=0,
-                    address=normalized_address,
-                    state="Unknown",
-                    coordinates="0,0"
-                )
-            return address_obj
-
-        else:
-            logger.warning(f"⚠️ address_type desconocido: {address_type}")
-            return None
-
-    except Exception as e:
-        tb = traceback.format_exc()
-        logger.error(f"❌ Error en get_address_by_code(code='{code}', type='{address_type}'): {e}\n{tb}")
-        return None
-    return None
-
-logger = logging.getLogger(__name__)
-
 class CarrierUserActionsViewSet(viewsets.ViewSet):
 
     @action(detail=False, methods=['post', 'get', 'put'], url_path='register-carrier-employee')
