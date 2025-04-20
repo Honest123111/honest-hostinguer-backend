@@ -1113,6 +1113,7 @@ LOCATION_MAPPING = {
     "OXR1": "Oxnard, OXR1,CA",
     "XCA2": "La Puente, XCA2,CA",
     "KRB1": "SAN BERNARDINO, KRB1, CA 92408",
+    "XLG1": "Redlands, XLG1, CA 92374",
 }
 
 def get_code_from_line(line):
