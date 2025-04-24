@@ -261,18 +261,6 @@ class AdminCarrier2(models.Model):
     def __str__(self):
         return f"Carrier: {self.company_name} (USDOT: {self.usdot_number})"
 
-class AddressO(models.Model):
-    id = models.AutoField(primary_key=True)
-    zip_code = models.IntegerField()
-    address = models.CharField(max_length=255)
-    state = models.CharField(max_length=255)
-    coordinates = models.CharField(max_length=255)
-    customer = models.ForeignKey(
-        Customer, on_delete=models.CASCADE, related_name='origin_addresses', null=True, blank=True
-    )
-
-    def __str__(self):
-        return self.address
 
 def get_current_datetime():
     return timezone.now()
@@ -366,6 +354,24 @@ class DispatcherProfile(models.Model):
     def __str__(self):
         return f"{self.user.get_full_name()} - Dispatcher"
 
+class AddressO(models.Model):
+    id = models.AutoField(primary_key=True)
+    zip_code = models.IntegerField()
+    address = models.CharField(max_length=255)
+    state = models.CharField(max_length=255)
+    coordinates = models.CharField(max_length=255)
+    customer = models.ForeignKey(
+        Customer, on_delete=models.CASCADE, related_name='origin_addresses', null=True, blank=True
+    )
+    arrival_datetime = models.DateTimeField(
+        default=timezone.now,
+        help_text="Estimated or actual arrival datetime at the origin"
+    )
+
+    def __str__(self):
+        return self.address
+
+
 class AddressD(models.Model):
     id = models.AutoField(primary_key=True)
     zip_code = models.IntegerField()
@@ -375,9 +381,21 @@ class AddressD(models.Model):
     customer = models.ForeignKey(
         Customer, on_delete=models.CASCADE, related_name='destination_addresses', null=True, blank=True
     )
+    arrival_datetime = models.DateTimeField(
+        default=timezone.now,
+        help_text="Estimated or actual arrival datetime at the destination"
+    )
 
     def __str__(self):
         return self.address
+
+    def clean(self):
+        # Find the related origin address through loads (reverse lookup)
+        related_load = self.load_destiny.first()  # assumes one-to-one, or first related Load
+        if related_load and related_load.origin and related_load.origin.arrival_datetime:
+            origin_dt = related_load.origin.arrival_datetime
+            if self.arrival_datetime and self.arrival_datetime < origin_dt:
+                raise ValidationError("Destination time must be after origin time, even if the date is the same.")
 
 class Load(models.Model):
     PRIORITY_CHOICES = [
