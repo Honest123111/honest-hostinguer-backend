@@ -201,8 +201,8 @@ EMAIL_HOST = "smtp.gmail.com"
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 
-EMAIL_HOST_USER = "aventurastorefigures@gmail.com"
-EMAIL_HOST_PASSWORD = "jnwz asgl hwae mcdi"
+EMAIL_HOST_USER = "tucorreo@gmail.com" #
+EMAIL_HOST_PASSWORD = "generar clave segun manuales"
 
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
-FRONTEND_RESET_URL = "https://honesttransportationfront.web.app/reset-password"  # o tu URL real
+FRONTEND_RESET_URL = "https://su.dominio/reset-password"  # aqui pueden poner la url de su frontend y tambien acceso de su hosting para el reset password
