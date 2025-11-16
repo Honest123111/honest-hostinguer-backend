@@ -1,0 +1,23 @@
+FROM python:3.11-slim
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential gcc libpq-dev libjpeg-dev libmagic-dev \
+ && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# install python deps
+COPY requirements.txt .
+RUN pip install --upgrade pip
+RUN pip install -r requirements.txt
+
+# copy project files
+COPY . .
+
+# non-root user
+RUN useradd -m appuser && chown -R appuser /app
+USER appuser
+
+ENV PYTHONUNBUFFERED=1
+
+CMD ["gunicorn", "honestdb_project.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "3"]
