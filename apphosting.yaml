@@ -1,11 +1,35 @@
 runtime: python
 pythonVersion: "3.11"
 
+build:
+  steps:
+    - name: "Install frontend dependencies"
+      entrypoint: bash
+      args:
+        - -c
+        - "cd honest-angular && npm install"
+    - name: "Build Angular frontend"
+      entrypoint: bash
+      args:
+        - -c
+        - "cd honest-angular && npm run build"
+    - name: "Copy frontend to Django static folder"
+      entrypoint: bash
+      args:
+        - -c
+        - "mkdir -p staticfiles && cp -r honest-angular/dist/honest-angular/browser/* staticfiles/"
+    - name: "Install Python dependencies"
+      entrypoint: pip
+      args: ["install", "-r", "requirements.txt"]
+    - name: "Collect Django static files"
+      entrypoint: python
+      args: ["manage.py", "collectstatic", "--noinput"]
+
 env:
-  - variable: DEBUG
+  - variable: "DEBUG"
     value: "False"
-  - variable: ALLOWED_HOSTS
+  - variable: "ALLOWED_HOSTS"
     value: "*"
 
 runConfig:
-  entrypoint: gunicorn config.wsgi:application --bind 0.0.0.0:8080
+  entrypoint: "gunicorn config.wsgi:application --bind 0.0.0.0:8080"
