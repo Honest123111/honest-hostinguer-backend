@@ -1,0 +1,20 @@
+runtime: python
+pythonVersion: "3.11"
+
+build:
+  steps:
+    - name: "pip install dependencies"
+      args: ["install", "-r", "requirements.txt"]
+    - name: "Django migrate"
+      args: ["python", "manage.py", "migrate"]
+    - name: "Django collectstatic"
+      args: ["python", "manage.py", "collectstatic", "--noinput"]
+
+env:
+  - variable: "DEBUG"
+    value: "False"
+  - variable: "ALLOWED_HOSTS"
+    value: "*"
+
+runConfig:
+  entrypoint: "gunicorn config.wsgi:application --bind 0.0.0.0:8080"
