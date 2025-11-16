@@ -1,26 +1,33 @@
 from pathlib import Path
 from datetime import timedelta
 import os
+from decouple import config
+
+BASE_DIR = Path(__file__).resolve().parent.parent
+
+
 
 # Directorio base del proyecto
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+
+
 # Seguridad
-SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'django-insecure-psks!+ztpo^r(^@upyd@+enk7%%7^*k3n8k+7jvc3v*$#i%5ad')
-DEBUG = os.getenv('DEBUG', 'True') == 'True'
-AUTH_USER_MODEL = 'myapp.CarrierUser'  # Debe apuntar a tu modelo personalizado
+SECRET_KEY = config('DJANGO_SECRET_KEY')
+DEBUG = config('DEBUG', default='False') == 'True'
+AUTH_USER_MODEL = 'myapp.CarrierUser'
+
+
 
 # Hosts permitidos (cambia esto con el dominio de tu VPS si tienes uno)
 ALLOWED_HOSTS = [
     'localhost',
     '127.0.0.1',
-    'srv728671',  # Nombre del VPS si lo usas
+    'srv728671',
     '93.127.215.173',
-    '93.127.215.173:8000',
     'honest-transportation.site',
     'www.honest-transportation.site',
 ]
-
 
 # Configuración de la base de datos PostgreSQL en el VPS
 DATABASES = {
@@ -42,7 +49,6 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'corsheaders',
     'rest_framework',
     'rest_framework_simplejwt',
     'myapp',
@@ -53,22 +59,25 @@ INSTALLED_APPS = [
 
 # Middleware
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',  # MUST be first
     'django.middleware.security.SecurityMiddleware',
-    'corsheaders.middleware.CorsMiddleware',  
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'whitenoise.middleware.WhiteNoiseMiddleware',  
 ]
 
 # Configuración de CORS (Para que el frontend pueda acceder al backend)
+# CORS Configuration for Firebase
 CORS_ALLOWED_ORIGINS = [
-    "https://honesttransportationfront.web.app",  # Producción
-    "http://localhost:4200",  # Desarrollo
-]
+    "https://honesttransportationfron-21ca5.firebaseapp.com",
+    "https://honesttransportationfron-21ca5.web.app",
+    "http://localhost:3000",
+    "http://localhost:5173",
+]]
 
 CSRF_TRUSTED_ORIGINS = [
     'http://localhost:4200',
@@ -106,6 +115,10 @@ SIMPLE_JWT = {
 # Configuración de archivos estáticos
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+
+
+
 
 # Configuración de archivos multimedia (si necesitas subir archivos)
 MEDIA_URL = '/media/'
@@ -201,8 +214,11 @@ EMAIL_HOST = "smtp.gmail.com"
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 
-EMAIL_HOST_USER = "tucorreo@gmail.com" #
-EMAIL_HOST_PASSWORD = "generar clave segun manuales"
+EMAIL_HOST_USER = "Kevin@honesttransportation.comm" #
+EMAIL_HOST_PASSWORD = "Honest123s"
 
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
-FRONTEND_RESET_URL = "https://su.dominio/reset-password"  # aqui pueden poner la url de su frontend y tambien acceso de su hosting para el reset password
+FRONTEND_RESET_URL = "https://honesttransportationfron-21ca5.web.app/forgot-password"  # aqui pueden poner la url de su frontend y tambien acceso de su hosting para el reset password
+
+
+

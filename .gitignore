@@ -29,3 +29,17 @@ staticfiles/
 .DS_Store
 Thumbs.db
 
+.env
+.env.*
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+.pytest_cache/
+.coverage
+.tox/
+build/
+dist/
+*.egg-info/
