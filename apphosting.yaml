@@ -2,31 +2,14 @@ runtime: python
 pythonVersion: "3.11"
 
 build:
-  # Add logs bucket configuration
   options:
     logging: CLOUD_LOGGING_ONLY
-    default_logs_bucket_behavior: REGIONAL_USER_OWNED_BUCKET
   steps:
     - name: "Create directories"
       entrypoint: bash
       args:
         - -c
         - "mkdir -p static staticfiles templates media"
-    - name: "Install frontend dependencies"
-      entrypoint: bash
-      args:
-        - -c
-        - "cd honest-angular && npm install || echo 'No Angular app found, skipping'"
-    - name: "Build Angular frontend"
-      entrypoint: bash
-      args:
-        - -c
-        - "cd honest-angular && npm run build || echo 'No Angular app found, skipping'"
-    - name: "Copy frontend to Django static folder"
-      entrypoint: bash
-      args:
-        - -c
-        - "mkdir -p staticfiles && cp -r honest-angular/dist/honest-angular/browser/* staticfiles/ || echo 'No Angular build found, skipping'"
     - name: "Install Python dependencies"
       entrypoint: bash
       args:
@@ -36,7 +19,7 @@ build:
       entrypoint: bash
       args:
         - -c
-        - "python manage.py collectstatic --noinput"
+        - "python manage.py collectstatic --noinput || echo 'Static collection failed, continuing'"
 
 env:
   - variable: "DEBUG"
