@@ -1,0 +1,6 @@
+cat > .firebaserc << 'EOF'
+{
+  "projects": {
+    "default": "honesttransportationfron-21ca5"
+  }
+}
