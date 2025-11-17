@@ -4,6 +4,7 @@ pythonVersion: "3.11"
 build:
   options:
     logging: CLOUD_LOGGING_ONLY
+    default_logs_bucket_behavior: REGIONAL_USER_OWNED_BUCKET
   steps:
     - name: "Create directories"
       entrypoint: bash
