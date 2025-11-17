@@ -1,0 +1,14 @@
+cat > package.json << 'EOF'
+{
+  "name": "honest-hostinguer-backend",
+  "version": "1.0.0",
+  "description": "Django backend with Angular frontend",
+  "main": "index.js",
+  "scripts": {
+    "build": "bash -c 'cd honest-angular && npm install && npm run build && mkdir -p ../staticfiles && cp -r dist/honest-angular/browser/* ../staticfiles/'"
+  },
+  "engines": {
+    "node": "20.x",
+    "npm": "10.x"
+  }
+}
