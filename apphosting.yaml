@@ -1,27 +1,6 @@
 runtime: python
 pythonVersion: "3.11"
 
-build:
-  options:
-    logging: CLOUD_LOGGING_ONLY
-    default_logs_bucket_behavior: REGIONAL_USER_OWNED_BUCKET
-  steps:
-    - name: "Create directories"
-      entrypoint: bash
-      args:
-        - -c
-        - "mkdir -p static staticfiles templates media"
-    - name: "Install Python dependencies"
-      entrypoint: bash
-      args:
-        - -c
-        - "pip install -r requirements.txt"
-    - name: "Collect Django static files"
-      entrypoint: bash
-      args:
-        - -c
-        - "python manage.py collectstatic --noinput || echo 'Static collection failed, continuing'"
-
 env:
   - variable: "DEBUG"
     value: "False"
@@ -29,15 +8,9 @@ env:
     value: "*"
   - variable: "SECRET_KEY"
     value: "firebase-app-hosting-secure-key-production"
-  - variable: "EMAIL_HOST_USER"
-    value: "noreply@example.com"
-  - variable: "EMAIL_HOST_PASSWORD"
-    value: "dummy-password"
-  - variable: "FRONTEND_RESET_URL"
-    value: "https://honesttransportationfron-21ca5.web.app/forgot-password"
 
 runConfig:
   entrypoint: bash
   args:
     - -c
-    - "gunicorn honestdb_project.wsgi:application --bind 0.0.0.0:8080"
+    - "pip install -r requirements.txt && python manage.py collectstatic --noinput && gunicorn honestdb_project.wsgi:application --bind 0.0.0.0:8080"

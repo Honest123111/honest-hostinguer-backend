@@ -1,15 +1,19 @@
-cat > firebase.json << 'EOF'
 {
   "hosting": {
-    "source": ".",
+    "public": "staticfiles",
     "ignore": [
       "firebase.json",
       "**/.*",
       "**/node_modules/**"
     ],
-    "appAssociation": "AUTO",
-    "frameworksBackend": {
-      "region": "us-central1"
-    }
+    "rewrites": [
+      {
+        "source": "**",
+        "run": {
+          "serviceId": "honest-hostinguer-backend",
+          "region": "us-central1"
+        }
+      }
+    ]
   }
 }
