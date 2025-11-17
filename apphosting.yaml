@@ -1,6 +1,8 @@
 runtime: python
 pythonVersion: "3.11"
 
+nodeVersion: "20"
+
 build:
   steps:
     - name: "Install frontend dependencies"
@@ -19,11 +21,15 @@ build:
         - -c
         - "mkdir -p staticfiles && cp -r honest-angular/dist/honest-angular/browser/* staticfiles/"
     - name: "Install Python dependencies"
-      entrypoint: pip
-      args: ["install", "-r", "requirements.txt"]
+      entrypoint: bash
+      args:
+        - -c
+        - "pip install -r requirements.txt"
     - name: "Collect Django static files"
-      entrypoint: python
-      args: ["manage.py", "collectstatic", "--noinput"]
+      entrypoint: bash
+      args:
+        - -c
+        - "python manage.py collectstatic --noinput"
 
 env:
   - variable: "DEBUG"
@@ -32,4 +38,7 @@ env:
     value: "*"
 
 runConfig:
-  entrypoint: "gunicorn config.wsgi:application --bind 0.0.0.0:8080"
+  entrypoint: bash
+  args:
+    - -c
+    - "gunicorn honestdb_project.wsgi:application --bind 0.0.0.0:8080"
