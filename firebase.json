@@ -1,0 +1,15 @@
+cat > firebase.json << 'EOF'
+{
+  "hosting": {
+    "source": ".",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "appAssociation": "AUTO",
+    "frameworksBackend": {
+      "region": "us-central1"
+    }
+  }
+}
