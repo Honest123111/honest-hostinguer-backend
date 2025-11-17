@@ -1,8 +1,6 @@
 runtime: python
 pythonVersion: "3.11"
 
-nodeVersion: "20"
-
 build:
   steps:
     - name: "Install frontend dependencies"
