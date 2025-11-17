@@ -1,4 +1,3 @@
-cat > honestdb_project/settings.py << 'EOF'
 from pathlib import Path
 from datetime import timedelta
 import os
@@ -6,12 +5,8 @@ import os
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-
 # SECURITY WARNING: keep the secret key used in production secret!
-# Use environment variable in production
-SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'django-insecure-psks!+ztpo^r(^@upyd@+enk7%%7^*k3n8k+7jvc3v*$#i%5ad')
-DEBUG = os.getenv('DEBUG', 'True') == 'True'
-AUTH_USER_MODEL = 'myapp.CarrierUser
+SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-key-for-development')
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.environ.get('DEBUG', 'False').lower() == 'true'
@@ -21,9 +16,6 @@ AUTH_USER_MODEL = 'myapp.CarrierUser'
 
 # Allow all hosts in Firebase
 ALLOWED_HOSTS = ['*']
-# Add specific hosts if needed
-if os.environ.get('ALLOWED_HOSTS'):
-    ALLOWED_HOSTS.extend(os.environ.get('ALLOWED_HOSTS').split(','))
 
 # Use SQLite for Firebase App Hosting
 DATABASES = {
@@ -45,13 +37,10 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt',
     'corsheaders',
     'myapp',
-    # Removing Celery apps as they won't work on Firebase
-    # 'django_celery_beat',
-    # 'django_celery_results',
     'django_extensions',
 ]
 
-# Fixed MIDDLEWARE (was IDDLEWARE)
+# Middleware
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',  # MUST be first
     'django.middleware.security.SecurityMiddleware',
@@ -70,20 +59,14 @@ CORS_ALLOWED_ORIGINS = [
     "https://honesttransportationfron-21ca5.web.app",
     "http://localhost:3000",
     "http://localhost:5173",
-    "http://localhost:4200",  
- "https://honest-hostinguer-backend--honesttransportationfron-21ca5.us-central1.hosted.app",
+    "http://localhost:4200",
 ]
 
 CSRF_TRUSTED_ORIGINS = [
     'http://localhost:4200',
     'https://honesttransportationfront.web.app',
     'https://honest-transportation.site',
-    'https://honest-hostinguer-backend--honesttransportationfron-21ca5.us-central1.hosted.app',
 ]
-
-# Remove Redis/Celery configuration as it won't work on Firebase
-# Use simpler session backend
-SESSION_ENGINE = "django.contrib.sessions.backends.db"
 
 # JWT Configuration
 SIMPLE_JWT = {
@@ -110,7 +93,7 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 # URLs and WSGI configuration
 ROOT_URLCONF = 'honestdb_project.urls'
-WSGI_APPLICATION = 'honestdb_project.wsgi.application'  # Fixed typo
+WSGI_APPLICATION = 'honestdb_project.wsgi.application'
 
 # Templates configuration
 TEMPLATES = [
@@ -197,4 +180,3 @@ FRONTEND_RESET_URL = os.environ.get(
 
 # Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
-EOF

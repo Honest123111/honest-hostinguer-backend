@@ -2,10 +2,12 @@
   "name": "honest-hostinguer-backend",
   "version": "1.0.0",
   "description": "Django backend for Honest Transportation",
+  "main": "index.js",
+  "scripts": {
+    "build": "echo 'Building Django application'",
+    "test": "echo \"No tests configured\""
+  },
   "engines": {
     "node": ">=18"
-  },
-  "scripts": {
-    "test": "echo \"No tests configured\""
   }
 }

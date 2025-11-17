@@ -2,10 +2,8 @@ runtime: python
 pythonVersion: "3.11"
 
 build:
-  # Add logs bucket configuration
   options:
     logging: CLOUD_LOGGING_ONLY
-    default_logs_bucket_behavior: REGIONAL_USER_OWNED_BUCKET
   steps:
     - name: "Create directories"
       entrypoint: bash
@@ -27,7 +25,7 @@ env:
   - variable: "DEBUG"
     value: "False"
   - variable: "ALLOWED_HOSTS"
-    value: "*,honest-hostinguer-backend--honesttransportationfron-21ca5.us-central1.hosted.app"
+    value: "*"
   - variable: "SECRET_KEY"
     value: "firebase-app-hosting-secure-key-production"
   - variable: "EMAIL_HOST_USER"
