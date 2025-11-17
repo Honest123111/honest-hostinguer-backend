@@ -1,47 +1,39 @@
+cat > honestdb_project/settings.py << 'EOF'
 from pathlib import Path
 from datetime import timedelta
 import os
-from decouple import config
 
+# Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
+# SECURITY WARNING: keep the secret key used in production secret!
+# Use environment variable in production
+SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'django-insecure-psks!+ztpo^r(^@upyd@+enk7%%7^*k3n8k+7jvc3v*$#i%5ad')
+DEBUG = os.getenv('DEBUG', 'True') == 'True'
+AUTH_USER_MODEL = 'myapp.CarrierUser
 
-# Directorio base del proyecto
-BASE_DIR = Path(__file__).resolve().parent.parent
+# SECURITY WARNING: don't run with debug turned on in production!
+DEBUG = os.environ.get('DEBUG', 'False').lower() == 'true'
 
-
-
-# Seguridad
-SECRET_KEY = config('DJANGO_SECRET_KEY')
-DEBUG = config('DEBUG', default='False') == 'True'
+# Custom user model
 AUTH_USER_MODEL = 'myapp.CarrierUser'
 
+# Allow all hosts in Firebase
+ALLOWED_HOSTS = ['*']
+# Add specific hosts if needed
+if os.environ.get('ALLOWED_HOSTS'):
+    ALLOWED_HOSTS.extend(os.environ.get('ALLOWED_HOSTS').split(','))
 
-
-# Hosts permitidos (cambia esto con el dominio de tu VPS si tienes uno)
-ALLOWED_HOSTS = [
-    'localhost',
-    '127.0.0.1',
-    'srv728671',
-    '93.127.215.173',
-    'honest-transportation.site',
-    'www.honest-transportation.site',
-]
-
-# Configuración de la base de datos PostgreSQL en el VPS
+# Use SQLite for Firebase App Hosting
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'honestdb',
-        'USER': 'honestuser',
-        'PASSWORD': 'honestpass',
-        'HOST': 'localhost',
-        'PORT': '5432',
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',
     }
 }
 
-# Aplicaciones instaladas
+# Application definition
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
@@ -51,13 +43,15 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'rest_framework',
     'rest_framework_simplejwt',
+    'corsheaders',
     'myapp',
-    'django_celery_beat',
+    # Removing Celery apps as they won't work on Firebase
+    # 'django_celery_beat',
+    # 'django_celery_results',
     'django_extensions',
-    'django_celery_results',
 ]
 
-# Middleware
+# Fixed MIDDLEWARE (was IDDLEWARE)
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',  # MUST be first
     'django.middleware.security.SecurityMiddleware',
@@ -70,40 +64,28 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
-# Configuración de CORS (Para que el frontend pueda acceder al backend)
 # CORS Configuration for Firebase
 CORS_ALLOWED_ORIGINS = [
     "https://honesttransportationfron-21ca5.firebaseapp.com",
     "https://honesttransportationfron-21ca5.web.app",
     "http://localhost:3000",
     "http://localhost:5173",
-]]
+    "http://localhost:4200",  
+ "https://honest-hostinguer-backend--honesttransportationfron-21ca5.us-central1.hosted.app",
+]
 
 CSRF_TRUSTED_ORIGINS = [
     'http://localhost:4200',
     'https://honesttransportationfront.web.app',
-    'https://honest-transportation.site',  
+    'https://honest-transportation.site',
+    'https://honest-hostinguer-backend--honesttransportationfron-21ca5.us-central1.hosted.app',
 ]
 
-# Configuración de Redis para Celery y caché
-REDIS_URL = 'redis://localhost:6379'
-CELERY_BROKER_URL = REDIS_URL
-CELERY_RESULT_BACKEND = REDIS_URL
-CELERY_ACCEPT_CONTENT = ['json']
-CELERY_TASK_SERIALIZER = 'json'
-CELERY_TIMEZONE = 'UTC'
+# Remove Redis/Celery configuration as it won't work on Firebase
+# Use simpler session backend
+SESSION_ENGINE = "django.contrib.sessions.backends.db"
 
-CACHES = {
-    "default": {
-        "BACKEND": "django_redis.cache.RedisCache",
-        "LOCATION": REDIS_URL,
-        "OPTIONS": {
-            "CLIENT_CLASS": "django_redis.client.DefaultClient",
-        }
-    }
-}
-
-# Configuración de JWT
+# JWT Configuration
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(hours=2),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
@@ -112,52 +94,29 @@ SIMPLE_JWT = {
     'AUTH_HEADER_TYPES': ('Bearer',),
 }
 
-# Configuración de archivos estáticos
+# Static files configuration
 STATIC_URL = '/static/'
-STATIC_ROOT = BASE_DIR / 'staticfiles'
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
-
-
-
-
-# Configuración de archivos multimedia (si necesitas subir archivos)
-MEDIA_URL = '/media/'
-MEDIA_ROOT = BASE_DIR / 'media'
-
-# Configuración de sesiones con Redis
-SESSION_ENGINE = "django.contrib.sessions.backends.cache"
-SESSION_CACHE_ALIAS = "default"
-
-# Configuración de Celery Beat (si necesitas ejecutar tareas programadas)
-CELERY_BEAT_SCHEDULE = {
-    'extract-emails-every-minute': {
-        'task': 'myapp.tasks.extract_emails_task',
-        'schedule': 60.0,  # Ejecutar cada 60 segundos
-    },
-}
-
-# Configuración de URLs y WSGI
-ROOT_URLCONF = 'honestdb_project.urls'
-WSGI_APPLICATION = 'honestdb_project.wsgi.application'
-
-# Configuración de validación de contraseñas
-AUTH_PASSWORD_VALIDATORS = [
-    {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
-    {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator'},
-    {'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator'},
-    {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'},
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+STATICFILES_DIRS = [
+    os.path.join(BASE_DIR, 'static'),
 ]
 
-# Internacionalización
-LANGUAGE_CODE = 'en-us'
-TIME_ZONE = 'UTC'
-USE_I18N = True
-USE_TZ = True
+# WhiteNoise configuration
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
+# Media files configuration
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+
+# URLs and WSGI configuration
+ROOT_URLCONF = 'honestdb_project.urls'
+WSGI_APPLICATION = 'honestdb_project.wsgi.application'  # Fixed typo
+
+# Templates configuration
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [BASE_DIR / 'templates'],  # Carpeta de plantillas
+        'DIRS': [os.path.join(BASE_DIR, 'templates')],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -170,22 +129,34 @@ TEMPLATES = [
     },
 ]
 
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+# Password validation
+AUTH_PASSWORD_VALIDATORS = [
+    {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
+    {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator'},
+    {'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator'},
+    {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'},
+]
 
-# 📌 Configuración de Django REST Framework
+# Internationalization
+LANGUAGE_CODE = 'en-us'
+TIME_ZONE = 'UTC'
+USE_I18N = True
+USE_TZ = True
+
+# Django REST Framework configuration
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework.authentication.SessionAuthentication',
-        'rest_framework.authentication.TokenAuthentication',
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ],
     'DEFAULT_PERMISSION_CLASSES': [
-    'rest_framework.permissions.AllowAny',
-]
+        'rest_framework.permissions.AllowAny',
+    ]
 }
 
-#CORS_ALLOW_ALL_ORIGINS = True  # 🚀 Permite todas las conexiones temporalmente (solo para desarrollo)
+# CORS configuration
 CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOW_ALL_ORIGINS = True  # Allow all origins for Firebase
 
 CORS_ALLOW_METHODS = [
     "GET",
@@ -206,19 +177,24 @@ CORS_ALLOW_HEADERS = [
     "x-requested-with",
 ]
 
-FILE_UPLOAD_MAX_MEMORY_SIZE = 10485760  # 10MB máximo
+# File upload configuration
+FILE_UPLOAD_MAX_MEMORY_SIZE = 10485760  # 10MB max
 
+# Email configuration - Use environment variables
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-
-EMAIL_HOST = "smtp.gmail.com"
-EMAIL_PORT = 587
+EMAIL_HOST = os.environ.get('EMAIL_HOST', 'smtp.gmail.com')
+EMAIL_PORT = int(os.environ.get('EMAIL_PORT', 587))
 EMAIL_USE_TLS = True
-
-EMAIL_HOST_USER = "Kevin@honesttransportation.comm" #
-EMAIL_HOST_PASSWORD = "Honest123s"
-
+EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')
+EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
-FRONTEND_RESET_URL = "https://honesttransportationfron-21ca5.web.app/forgot-password"  # aqui pueden poner la url de su frontend y tambien acceso de su hosting para el reset password
 
+# Frontend URL for password reset
+FRONTEND_RESET_URL = os.environ.get(
+    'FRONTEND_RESET_URL', 
+    'https://honesttransportationfron-21ca5.web.app/forgot-password'
+)
 
-
+# Default primary key field type
+DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+EOF

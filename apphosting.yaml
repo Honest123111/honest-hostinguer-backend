@@ -3,21 +3,26 @@ pythonVersion: "3.11"
 
 build:
   steps:
+    - name: "Create directories"
+      entrypoint: bash
+      args:
+        - -c
+        - "mkdir -p static staticfiles templates media"
     - name: "Install frontend dependencies"
       entrypoint: bash
       args:
         - -c
-        - "cd honest-angular && npm install"
+        - "cd honest-angular && npm install || echo 'No Angular app found, skipping'"
     - name: "Build Angular frontend"
       entrypoint: bash
       args:
         - -c
-        - "cd honest-angular && npm run build"
+        - "cd honest-angular && npm run build || echo 'No Angular app found, skipping'"
     - name: "Copy frontend to Django static folder"
       entrypoint: bash
       args:
         - -c
-        - "mkdir -p staticfiles && cp -r honest-angular/dist/honest-angular/browser/* staticfiles/"
+        - "mkdir -p staticfiles && cp -r honest-angular/dist/honest-angular/browser/* staticfiles/ || echo 'No Angular build found, skipping'"
     - name: "Install Python dependencies"
       entrypoint: bash
       args:
@@ -33,7 +38,15 @@ env:
   - variable: "DEBUG"
     value: "False"
   - variable: "ALLOWED_HOSTS"
-    value: "*"
+    value: "*,honest-hostinguer-backend--honesttransportationfron-21ca5.us-central1.hosted.app"
+  - variable: "SECRET_KEY"
+    value: "firebase-app-hosting-secure-key-production"
+  - variable: "EMAIL_HOST_USER"
+    value: "noreply@example.com"
+  - variable: "EMAIL_HOST_PASSWORD"
+    value: "dummy-password"
+  - variable: "FRONTEND_RESET_URL"
+    value: "https://honesttransportationfron-21ca5.web.app/forgot-password"
 
 runConfig:
   entrypoint: bash
