@@ -1,4 +1,3 @@
-cat > honestdb_project/urls.py << 'EOF'
 from django.contrib import admin
 from django.urls import path, include, re_path
 from django.conf import settings
@@ -12,8 +11,8 @@ def health_check(request):
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('health/', health_check, name='health_check'),
-    # Add your API paths here - uncomment and adjust as needed
-    path('api/', include('myapp.urls')),
+    # Comment out the non-existent app
+    # path('api/', include('myapp.urls')),
     
     # Serve Angular app
     path('', TemplateView.as_view(template_name='index.html')),
